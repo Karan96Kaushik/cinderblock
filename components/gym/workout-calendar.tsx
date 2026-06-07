@@ -3,13 +3,17 @@ import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import program from '@/foundation-7-june.json'
-import type { GymStore, WorkoutKey, ExerciseLog } from './gym-tracker'
-import { isExerciseAddressed } from './gym-tracker'
+import type { GymStore, WorkoutKey } from './gym-tracker'
+import { isDayComplete } from './gym-tracker'
+import { WorkoutSessionDetails } from './workout-session-details'
 
 interface WorkoutCalendarProps {
   store: GymStore
   selectedDate: string
   onSelectDate: (date: string) => void
+  onOpenWorkout: () => void
+  onStartWorkout: () => void
+  onStartToday: () => void
 }
 
 const DOT_COLOR: Record<WorkoutKey, string> = {
@@ -24,20 +28,19 @@ function getDotColor(key: WorkoutKey) {
   return DOT_COLOR[key] ?? 'bg-muted-foreground'
 }
 
-function isDayComplete(store: GymStore, dateStr: string): boolean {
-  const log = store[dateStr]
-  if (!log) return false
-  if (log.workoutKey === 'rest') return true
-  const exercises = Object.values(log.exercises)
-  return exercises.length > 0 && exercises.every((e: ExerciseLog) => isExerciseAddressed(e))
-}
-
-export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCalendarProps) {
+export function WorkoutCalendar({
+  store,
+  selectedDate,
+  onSelectDate,
+  onOpenWorkout,
+  onStartWorkout,
+  onStartToday,
+}: WorkoutCalendarProps) {
   const selected = new Date(selectedDate + 'T12:00:00')
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const totalLogged = Object.keys(store).length
-  const totalCompleted = Object.keys(store).filter((d) => isDayComplete(store, d)).length
+  const totalCompleted = Object.keys(store).filter((d) => isDayComplete(store[d])).length
 
   return (
     <div className="pb-28">
@@ -106,7 +109,7 @@ export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCa
               DayButton: ({ day, modifiers, ...props }) => {
                 const dateStr = format(day.date, 'yyyy-MM-dd')
                 const log = store[dateStr]
-                const complete = isDayComplete(store, dateStr)
+                const complete = isDayComplete(log)
                 const isToday = dateStr === today
 
                 return (
@@ -146,6 +149,17 @@ export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCa
           />
         </div>
       </div>
+
+      <WorkoutSessionDetails
+        date={selectedDate}
+        log={store[selectedDate]}
+        onOpenWorkout={
+          store[selectedDate]?.workoutKey && store[selectedDate]?.workoutKey !== 'rest'
+            ? onOpenWorkout
+            : undefined
+        }
+        onStartWorkout={onStartWorkout}
+      />
 
       {/* Legend */}
       <div className="px-4 mb-6">
@@ -220,7 +234,7 @@ export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCa
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 border-t border-border backdrop-blur-sm">
         <div className="max-w-2xl mx-auto">
           <button
-            onClick={() => onSelectDate(today)}
+            onClick={onStartToday}
             data-haptic="success"
             className="w-full min-h-[52px] rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
           >

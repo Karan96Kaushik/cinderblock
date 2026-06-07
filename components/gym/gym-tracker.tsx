@@ -37,6 +37,59 @@ export function isExerciseAddressed(log: ExerciseLog | undefined): boolean {
   return log.completed || Boolean(log.skipped)
 }
 
+export const WORKOUT_LABELS: Record<WorkoutKey, string> = {
+  upperA: 'Upper A',
+  lowerA: 'Lower A',
+  upperB: 'Upper B',
+  lowerB: 'Lower B',
+  rest: 'Rest day',
+}
+
+export type DayStatus = 'complete' | 'partial' | 'rest' | 'empty'
+
+export type ExerciseStatus = 'done' | 'skipped' | 'logged' | 'pending'
+
+export function hasLoggedSetData(log: ExerciseLog | undefined): boolean {
+  if (!log) return false
+  return log.sets.some((set) => Boolean(set.weight.trim() || set.reps.trim()))
+}
+
+export function getExerciseStatus(log: ExerciseLog | undefined): ExerciseStatus {
+  if (!log) return 'pending'
+  if (log.completed) return 'done'
+  if (log.skipped) return 'skipped'
+  if (hasLoggedSetData(log)) return 'logged'
+  return 'pending'
+}
+
+export function formatSetSummary(log: ExerciseLog): string | null {
+  const parts = log.sets
+    .map((set) => {
+      const weight = set.weight.trim()
+      const reps = set.reps.trim()
+      if (weight && reps) return `${weight}kg × ${reps}`
+      if (weight) return `${weight}kg`
+      if (reps) return `${reps} reps`
+      return null
+    })
+    .filter(Boolean)
+
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
+export function getDayStatus(log: DayLog | undefined): DayStatus {
+  if (!log) return 'empty'
+  if (log.workoutKey === 'rest') return 'rest'
+  const exercises = Object.values(log.exercises)
+  if (exercises.length === 0) return 'empty'
+  if (exercises.every((e) => isExerciseAddressed(e))) return 'complete'
+  return 'partial'
+}
+
+export function isDayComplete(log: DayLog | undefined): boolean {
+  return getDayStatus(log) === 'complete' || getDayStatus(log) === 'rest'
+}
+
 type WorkoutMap = Record<string, { name: string; exercises: ProgramExercise[] }>
 
 function initExercises(key: WorkoutKey): Record<string, ExerciseLog> {
@@ -82,12 +135,24 @@ export function GymTracker({ onBack }: GymTrackerProps) {
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date)
-    const existing = store[date]
+  }
+
+  const handleOpenWorkout = () => {
+    const existing = store[selectedDate]
     if (existing && existing.workoutKey !== 'rest') {
       setView('flow')
     } else {
       setView('selector')
     }
+  }
+
+  const handleStartWorkout = () => {
+    setView('selector')
+  }
+
+  const handleStartToday = () => {
+    setSelectedDate(today)
+    setView('selector')
   }
 
   const handleSelectWorkout = (key: WorkoutKey) => {
@@ -152,6 +217,9 @@ export function GymTracker({ onBack }: GymTrackerProps) {
             store={store}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
+            onOpenWorkout={handleOpenWorkout}
+            onStartWorkout={handleStartWorkout}
+            onStartToday={handleStartToday}
           />
         )}
 

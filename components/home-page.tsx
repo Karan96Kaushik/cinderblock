@@ -13,6 +13,7 @@ import { isExerciseAddressed } from '@/components/gym/gym-tracker'
 interface HomePageProps {
   onStartTraining: () => void
   onOpenMetrics: () => void
+  onOpenSettings: () => void
 }
 
 function getTrainingStats(store: GymStore) {
@@ -27,7 +28,7 @@ function getTrainingStats(store: GymStore) {
   return { sessions: dates.length, completed: completed.length }
 }
 
-export function HomePage({ onStartTraining, onOpenMetrics }: HomePageProps) {
+export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: HomePageProps) {
   const [stats, setStats] = useState({ sessions: 0, completed: 0 })
   const [latestWeight, setLatestWeight] = useState<string>()
   const [latestWaist, setLatestWaist] = useState<string>()
@@ -46,7 +47,11 @@ export function HomePage({ onStartTraining, onOpenMetrics }: HomePageProps) {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <CyberGrid />
-      <CyberHeader onTrainingClick={onStartTraining} onMetricsClick={onOpenMetrics} />
+      <CyberHeader
+        onTrainingClick={onStartTraining}
+        onMetricsClick={onOpenMetrics}
+        onSettingsClick={onOpenSettings}
+      />
 
       <main className="relative z-10 pt-24 pb-20">
         <section className="max-w-3xl mx-auto px-4 py-10 md:py-16">
@@ -224,7 +229,7 @@ export function HomePage({ onStartTraining, onOpenMetrics }: HomePageProps) {
           </section>
 
           {/* Bottom CTA */}
-          <div className="text-center pt-4">
+          <div className="text-center pt-4 space-y-3">
             <p className="font-mono text-xs text-muted-foreground mb-4">
               Ready to log today&apos;s session?
             </p>
@@ -234,6 +239,13 @@ export function HomePage({ onStartTraining, onOpenMetrics }: HomePageProps) {
               className="w-full sm:w-auto min-h-[48px] px-6 rounded-lg border border-neon-orange/50 font-mono text-sm tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors"
             >
               OPEN TRAINING LOG
+            </button>
+            <button
+              onClick={onOpenSettings}
+              data-haptic="selection"
+              className="w-full sm:w-auto min-h-[40px] px-6 rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors"
+            >
+              SETTINGS
             </button>
           </div>
         </section>

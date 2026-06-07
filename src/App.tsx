@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { AuthProvider } from '@/hooks/use-auth'
+import { SettingsProvider } from '@/hooks/use-settings'
 import { HapticInit } from '@/components/haptic-init'
 import { HomePage } from '@/components/home-page'
 import { GymTracker } from '@/components/gym/gym-tracker'
 import { MetricsTracker } from '@/components/metrics/metrics-tracker'
+import { SettingsPage } from '@/components/settings/settings-page'
 
-type AppView = 'home' | 'gym' | 'metrics'
+type AppView = 'home' | 'gym' | 'metrics' | 'settings'
 
 function AppRoutes() {
   const [currentView, setCurrentView] = useState<AppView>('home')
@@ -18,10 +20,15 @@ function AppRoutes() {
     return <MetricsTracker onBack={() => setCurrentView('home')} />
   }
 
+  if (currentView === 'settings') {
+    return <SettingsPage onBack={() => setCurrentView('home')} />
+  }
+
   return (
     <HomePage
       onStartTraining={() => setCurrentView('gym')}
       onOpenMetrics={() => setCurrentView('metrics')}
+      onOpenSettings={() => setCurrentView('settings')}
     />
   )
 }
@@ -29,9 +36,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <HapticInit>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </SettingsProvider>
     </HapticInit>
   )
 }

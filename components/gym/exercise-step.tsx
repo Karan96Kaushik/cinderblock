@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExerciseLog, ProgramExercise, SetLog } from './gym-tracker'
+import { ExerciseStopwatch } from './exercise-stopwatch'
 
 interface ExerciseStepProps {
   exercise: ProgramExercise
@@ -10,6 +11,38 @@ interface ExerciseStepProps {
   onMarkDone: () => void
   onSkip: () => void
   onMarkUndone: () => void
+}
+
+function hasSetData(set: SetLog): boolean {
+  return Boolean(set.weight.trim() || set.reps.trim())
+}
+
+function computeVisibleSetCount(
+  sets: SetLog[],
+  totalSets: number,
+  isAddressed: boolean,
+): number {
+  if (isAddressed) return totalSets
+
+  let lastWithData = -1
+  for (let i = 0; i < Math.min(sets.length, totalSets); i++) {
+    if (hasSetData(sets[i])) lastWithData = i
+  }
+
+  if (lastWithData === -1) return 1
+  if (lastWithData >= totalSets - 1) return totalSets
+  return Math.min(lastWithData + 2, totalSets)
+}
+
+function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
+  if (index <= 0 || hasSetData(sets[index])) return sets
+
+  const prev = sets[index - 1]
+  if (!hasSetData(prev)) return sets
+
+  const next = [...sets]
+  next[index] = { weight: prev.weight, reps: prev.reps }
+  return next
 }
 
 export function ExerciseStep({
@@ -29,10 +62,40 @@ export function ExerciseStep({
   const hasDuration = Boolean(exercise.duration)
   const targetLabel = hasDuration ? exercise.duration : exercise.reps
 
+  const [visibleSetCount, setVisibleSetCount] = useState(() =>
+    computeVisibleSetCount(sets, exercise.sets, isAddressed),
+  )
+
+  useEffect(() => {
+    setVisibleSetCount(computeVisibleSetCount(sets, exercise.sets, isAddressed))
+  }, [exercise.name, exercise.sets, isAddressed])
+
   const updateSet = (index: number, field: keyof SetLog, value: string) => {
     const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+
+    if (
+      hasSetData(next[index]) &&
+      index === visibleSetCount - 1 &&
+      visibleSetCount < exercise.sets
+    ) {
+      setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
+    }
+
     onUpdateSets(next)
   }
+
+  const handleSetFocus = (index: number) => {
+    const next = fillSetFromPrevious(sets, index)
+    if (next !== sets) {
+      onUpdateSets(next)
+    }
+
+    if (index > 0 && index === visibleSetCount - 1 && visibleSetCount < exercise.sets) {
+      setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
+    }
+  }
+
+  const visibleSets = sets.slice(0, visibleSetCount)
 
   return (
     <div className="flex flex-col">
@@ -81,7 +144,17 @@ export function ExerciseStep({
       {/* Set rows */}
       {!hasDuration ? (
         <div className="space-y-2 mb-5">
-          {sets.map((set, i) => (
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Log sets
+            </span>
+            {!isAddressed && (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {visibleSetCount} of {exercise.sets} shown
+              </span>
+            )}
+          </div>
+          {visibleSets.map((set, i) => (
             <div
               key={i}
               className={cn(
@@ -104,6 +177,7 @@ export function ExerciseStep({
                     inputMode="decimal"
                     value={set.weight}
                     onChange={(e) => updateSet(i, 'weight', e.target.value)}
+                    onFocus={() => handleSetFocus(i)}
                     placeholder="—"
                     disabled={isAddressed}
                     className={cn(
@@ -123,6 +197,7 @@ export function ExerciseStep({
                     inputMode="numeric"
                     value={set.reps}
                     onChange={(e) => updateSet(i, 'reps', e.target.value)}
+                    onFocus={() => handleSetFocus(i)}
                     placeholder="—"
                     disabled={isAddressed}
                     className={cn(
@@ -155,6 +230,8 @@ export function ExerciseStep({
           </div>
         </div>
       )}
+
+      <ExerciseStopwatch key={exercise.name} />
 
       {/* Notes (collapsible) */}
       {exercise.notes && exercise.notes.length > 0 && (
