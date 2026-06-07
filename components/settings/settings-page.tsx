@@ -5,6 +5,7 @@ import {
   BellOff,
   ChevronDown,
   ChevronUp,
+  Download,
   Footprints,
   Loader2,
   RotateCcw,
@@ -44,6 +45,7 @@ import {
   removeRunsOlderThan,
   type RunSessionLog,
 } from '@/lib/running'
+import { downloadTrainingLogsBackup } from '@/lib/training-backup'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -172,6 +174,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         />
 
         <NotificationsSection />
+
+        <BackupSection gymDays={sortedEntries.length} runs={runLog.length} />
 
         <WorkoutHistorySection
           entries={sortedEntries}
@@ -580,6 +584,49 @@ function NotificationsSection() {
         {message && (
           <p className="font-mono text-xs text-neon-yellow">{message}</p>
         )}
+      </div>
+    </SectionCard>
+  )
+}
+
+function BackupSection({ gymDays, runs }: { gymDays: number; runs: number }) {
+  const [message, setMessage] = useState<string | null>(null)
+
+  const handleDownload = () => {
+    const { gymDays: days, runs: runCount } = downloadTrainingLogsBackup()
+    const parts = [
+      days === 1 ? '1 workout day' : `${days} workout days`,
+      runCount === 1 ? '1 run' : `${runCount} runs`,
+    ]
+    setMessage(`Downloaded backup (${parts.join(', ')}).`)
+    Haptic.success()
+  }
+
+  return (
+    <SectionCard title="Backup">
+      <div className="space-y-4">
+        <p className="font-mono text-xs text-muted-foreground leading-relaxed">
+          Save all workout and run history as a JSON file. Use this to keep a local copy of your
+          training logs.
+        </p>
+
+        <button
+          type="button"
+          onClick={handleDownload}
+          data-haptic="selection"
+          className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 bg-neon-orange/10 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/20 transition-colors flex items-center justify-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Download training logs
+        </button>
+
+        <p className="font-mono text-[10px] text-muted-foreground">
+          {gymDays === 0 && runs === 0
+            ? 'No logs yet — download will still produce an empty backup file.'
+            : `${gymDays} workout ${gymDays === 1 ? 'day' : 'days'} · ${runs} ${runs === 1 ? 'run' : 'runs'} included`}
+        </p>
+
+        {message && <p className="font-mono text-xs text-neon-yellow">{message}</p>}
       </div>
     </SectionCard>
   )

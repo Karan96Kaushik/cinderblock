@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { useSettings } from '@/hooks/use-settings'
+import { useDeviceMusicPlaying } from '@/hooks/use-device-music-playing'
 import { useMediaSession } from '@/hooks/use-media-session'
 import { MediaTrackControls } from '@/components/media-track-controls'
 import { AlwaysAwakeToggle } from '@/components/always-awake-toggle'
@@ -217,6 +218,8 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
   const toggleRunRef = useRef(toggleRun)
   toggleRunRef.current = toggleRun
 
+  const deviceMusicPlaying = useDeviceMusicPlaying()
+
   useMediaSession({
     enabled: sessionActive,
     title: `${PHASE_LABELS[phase]} · ${formatTimer(remaining)}`,
@@ -371,7 +374,9 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
         )}
 
         <AlwaysAwakeToggle active={sessionActive} className="min-h-[48px] text-sm rounded-xl" />
-        <MediaTrackControls className="rounded-xl py-3 px-4 [&_button]:min-h-[44px] [&_button]:min-w-[44px] [&_span]:text-xs" />
+        {deviceMusicPlaying && (
+          <MediaTrackControls className="rounded-xl py-3 px-4 [&_button]:min-h-[44px] [&_button]:min-w-[44px] [&_span]:text-xs" />
+        )}
 
         <button
           type="button"

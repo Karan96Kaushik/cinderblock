@@ -26,9 +26,36 @@ export function canControlMediaTracks(): boolean {
   return isMediaSessionSupported() && typeof navigator.mediaSession.setActionHandler === 'function'
 }
 
+function queryMediaElements(): HTMLMediaElement[] {
+  return [...document.querySelectorAll('audio, video')] as HTMLMediaElement[]
+}
+
+function isMediaElementPlaying(el: HTMLMediaElement): boolean {
+  return !el.paused && !el.ended && el.currentTime > 0
+}
+
+export function isInPageMediaPlaying(): boolean {
+  return queryMediaElements().some(isMediaElementPlaying)
+}
+
+export function isCinderblockMediaSession(metadata: MediaMetadata | null): boolean {
+  return (metadata?.artist ?? '').includes('CINDERBLOCK')
+}
+
+export function isExternalMediaSessionPlaying(): boolean {
+  if (!isMediaSessionSupported()) return false
+  const { mediaSession } = navigator
+  if (mediaSession.playbackState !== 'playing') return false
+  return !isCinderblockMediaSession(mediaSession.metadata)
+}
+
+export function isDeviceMusicPlaying(): boolean {
+  return isInPageMediaPlaying() || isExternalMediaSessionPlaying()
+}
+
 function findControllableMedia(): HTMLMediaElement | null {
-  const elements = [...document.querySelectorAll('audio, video')] as HTMLMediaElement[]
-  const playing = elements.find((el) => !el.paused && !el.ended && el.currentTime > 0)
+  const elements = queryMediaElements()
+  const playing = elements.find(isMediaElementPlaying)
   return playing ?? elements[0] ?? null
 }
 
