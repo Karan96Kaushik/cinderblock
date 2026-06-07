@@ -86,23 +86,23 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
       <div className="max-w-2xl mx-auto">
         {view === 'plan' && (
           <div className="px-4 pt-6 pb-28">
-            <h1 className="font-sans text-2xl font-bold text-foreground tracking-wider mb-1">
+            <h1 className="font-sans text-3xl sm:text-4xl font-bold text-foreground tracking-wider mb-2">
               Run session
             </h1>
-            <p className="font-mono text-xs text-muted-foreground mb-6">
+            <p className="font-mono text-sm text-muted-foreground mb-8">
               Warmup · run · cooldown — default 5 · 30 · 5
             </p>
 
             {canResume && savedSession && (
-              <div className="mb-6 rounded-xl border border-neon-yellow/30 bg-neon-yellow/5 p-4">
-                <p className="font-mono text-xs text-neon-yellow uppercase tracking-wider mb-1">
+              <div className="mb-8 rounded-xl border border-neon-yellow/30 bg-neon-yellow/5 p-5">
+                <p className="font-mono text-sm text-neon-yellow uppercase tracking-wider mb-2">
                   Session in progress
                 </p>
-                <p className="font-sans text-sm text-foreground mb-1">
+                <p className="font-sans text-lg text-foreground mb-2">
                   {formatPlanSummary(savedSession.plan)} ·{' '}
                   {PHASE_LABELS[PHASE_ORDER[savedSession.phaseIndex] ?? 'warmup']}
                 </p>
-                <p className="font-mono text-xs text-muted-foreground mb-4">
+                <p className="font-mono text-sm text-muted-foreground mb-5">
                   {savedSession.running
                     ? 'Timer was running — will catch up from last timestamp'
                     : `${formatTimer(savedSession.remainingSeconds)} remaining · paused`}
@@ -112,16 +112,16 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
                     type="button"
                     onClick={handleResume}
                     data-haptic="success"
-                    className="flex-1 min-h-[44px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-xs font-bold tracking-widest uppercase hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    className="flex-1 min-h-[52px] rounded-xl bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                   >
                     Continue run
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-5 h-5" />
                   </button>
                   <button
                     type="button"
                     onClick={handleDiscard}
                     data-haptic="warning"
-                    className="min-h-[44px] px-4 rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
+                    className="min-h-[52px] px-5 rounded-xl border border-border font-mono text-sm tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Discard
                   </button>
@@ -138,26 +138,26 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
                 goToSession()
               }}
               data-haptic="success"
-              className="w-full mt-8 min-h-[52px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
+              className="w-full mt-8 min-h-[56px] rounded-xl bg-neon-orange text-primary-foreground font-mono text-base font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
             >
               {canResume ? 'Start new session' : 'Start session'}
             </button>
 
             {recentRuns.length > 0 && (
               <div className="mt-10">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+                <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-4">
                   Recent runs
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {recentRuns.map((run) => (
                     <div
                       key={run.id}
-                      className="flex items-center justify-between rounded-lg border border-border bg-card/40 px-3 py-2.5"
+                      className="flex items-center justify-between rounded-xl border border-border bg-card/40 px-4 py-3.5"
                     >
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="font-mono text-sm text-muted-foreground">
                         {format(new Date(run.completedAt), 'EEE, MMM d')}
                       </span>
-                      <span className="font-sans text-sm font-bold text-foreground">
+                      <span className="font-sans text-base font-bold text-foreground">
                         {run.plan.warmupMinutes} · {run.plan.runMinutes} · {run.plan.cooldownMinutes}
                       </span>
                     </div>

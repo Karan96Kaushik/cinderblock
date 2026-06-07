@@ -30,12 +30,12 @@ function PresetRow({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
-        <span className="font-sans text-sm font-bold text-neon-orange">{formatMinutes(value)}</span>
+        <span className="font-sans text-lg font-bold text-neon-orange">{formatMinutes(value)}</span>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2.5">
         {presets.map((minutes) => (
           <button
             key={minutes}
@@ -43,7 +43,7 @@ function PresetRow({
             onClick={() => onSelect(minutes)}
             data-haptic="selection"
             className={cn(
-              'min-h-[40px] min-w-[52px] px-3 rounded-lg border font-mono text-sm font-bold tracking-wider transition-colors',
+              'min-h-[48px] min-w-[60px] px-4 rounded-xl border font-mono text-base font-bold tracking-wider transition-colors',
               value === minutes
                 ? 'bg-neon-orange/20 border-neon-orange/50 text-neon-orange'
                 : 'border-border text-muted-foreground hover:border-neon-orange/40 hover:text-neon-orange',
@@ -63,10 +63,10 @@ export function RunningPlanBuilder({ plan, onChange }: RunningPlanBuilderProps) 
   return (
     <div className="space-y-6">
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+        <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-3">
           Quick plans
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2.5">
           {PLAN_PRESETS.map((preset) => {
             const active = plansMatch(plan, preset)
             return (
@@ -82,7 +82,7 @@ export function RunningPlanBuilder({ plan, onChange }: RunningPlanBuilderProps) 
                 }
                 data-haptic="selection"
                 className={cn(
-                  'min-h-[44px] px-4 rounded-lg border font-mono text-xs font-bold tracking-widest uppercase transition-colors',
+                  'min-h-[52px] px-5 rounded-xl border font-mono text-sm font-bold tracking-widest uppercase transition-colors',
                   active
                     ? 'bg-neon-orange text-primary-foreground border-neon-orange neon-border-orange'
                     : 'border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40',
@@ -95,7 +95,7 @@ export function RunningPlanBuilder({ plan, onChange }: RunningPlanBuilderProps) 
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-5">
+      <div className="rounded-xl border border-border bg-card/50 p-5 md:p-6 space-y-6">
         <PresetRow
           label="Warmup"
           value={plan.warmupMinutes}
@@ -117,12 +117,12 @@ export function RunningPlanBuilder({ plan, onChange }: RunningPlanBuilderProps) 
       </div>
 
       <div className="text-center">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+        <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-2">
           Session total
         </p>
-        <p className="font-sans text-2xl font-bold text-foreground tabular-nums">
+        <p className="font-sans text-3xl sm:text-4xl font-bold text-foreground tabular-nums">
           {formatPlanSummary(plan)}
-          <span className="text-sm font-normal text-muted-foreground ml-2">
+          <span className="text-base font-normal text-muted-foreground ml-2">
             ({plan.warmupMinutes + plan.runMinutes + plan.cooldownMinutes} min)
           </span>
         </p>

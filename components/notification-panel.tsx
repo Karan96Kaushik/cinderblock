@@ -48,8 +48,8 @@ export function NotificationPanel() {
     }
   };
 
-  const handleTest = () => {
-    const sent = sendTestNotification(
+  const handleTest = async () => {
+    const sent = await sendTestNotification(
       'CINDERBLOCK ALERT',
       'System notification test successful. Neural link established.'
     );

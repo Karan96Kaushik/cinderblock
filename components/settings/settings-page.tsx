@@ -476,16 +476,19 @@ function NotificationsSection() {
     }
   }
 
-  const handleTest = () => {
-    const sent = sendTestNotification(
+  const handleTest = async () => {
+    const sent = await sendTestNotification(
       'CINDERBLOCK',
       'Test notification — your alerts are working.',
     )
     if (sent) {
       setMessage('Test notification sent.')
       Haptic.success()
-    } else {
+    } else if (Notification.permission !== 'granted') {
       setMessage('Could not send test — enable notifications first.')
+      Haptic.error()
+    } else {
+      setMessage('Could not send test — check browser notification settings.')
       Haptic.error()
     }
   }

@@ -216,25 +216,46 @@ export function usePushNotifications() {
     }
   }, [registration]);
 
-  const sendTestNotification = useCallback((title: string, body: string) => {
-    if (state.permission !== 'granted') {
+  const sendTestNotification = useCallback(async (title: string, body: string) => {
+    const permission = Notification.permission;
+
+    if (permission !== 'granted') {
+      setState((prev) => ({ ...prev, permission }));
       console.warn('[v0] Cannot send notification: permission not granted');
       return false;
     }
 
+    const options: NotificationOptions = {
+      body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
+      tag: 'test-notification',
+    };
+
     try {
-      new Notification(title, {
-        body,
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-192x192.png',
-        tag: 'test-notification',
-      });
+      // Service worker path — required on iOS/PWA; also more reliable when SW is active.
+      if ('serviceWorker' in navigator) {
+        const reg = registration ?? (await navigator.serviceWorker.ready);
+        if (reg.active) {
+          await reg.showNotification(title, options);
+          setState((prev) => ({ ...prev, permission: 'granted', swState: 'active' }));
+          return true;
+        }
+      }
+
+      // Desktop fallback when no active service worker.
+      new Notification(title, options);
+      setState((prev) => ({ ...prev, permission: 'granted' }));
       return true;
     } catch (error) {
       console.error('[v0] Failed to show notification:', error);
+      setState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to show notification',
+      }));
       return false;
     }
-  }, [state.permission]);
+  }, [registration]);
 
   const checkSWStatus = useCallback(async (): Promise<SWState> => {
     if (!registration) return 'unsupported';
