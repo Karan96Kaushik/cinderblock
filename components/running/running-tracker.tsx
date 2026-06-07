@@ -40,10 +40,12 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
   const [activeSession, setActiveSession] = useState<ActiveRunSession | null>(() =>
     readActiveRunSession(),
   )
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const today = format(new Date(), 'MMM d, yyyy')
 
   useEffect(() => {
     setActiveSession(readActiveRunSession())
+    setConfirmDiscard(false)
   }, [view])
 
   const canResume =
@@ -69,6 +71,7 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
     clearActiveRunSession()
     setActiveSession(null)
     setPlan(readDefaultRunningPlan())
+    setConfirmDiscard(false)
     Haptic.warning()
   }
 
@@ -118,24 +121,50 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
                     ? 'Timer was running — will catch up from last timestamp'
                     : `${formatTimer(activeSession.remainingSeconds)} remaining · paused`}
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={handleResume}
                     data-haptic="success"
-                    className="flex-1 min-h-[52px] rounded-xl bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    className="w-full min-h-[52px] rounded-xl bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
                   >
                     Continue run
                     <ChevronRight className="w-5 h-5" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleDiscard}
-                    data-haptic="warning"
-                    className="min-h-[52px] px-5 rounded-xl border border-border font-mono text-sm tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Discard
-                  </button>
+                  {confirmDiscard ? (
+                    <div className="rounded-xl border border-neon-red/30 bg-neon-red/5 p-4 space-y-3">
+                      <p className="font-mono text-sm text-foreground text-center">
+                        Discard this run? Progress will not be saved.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDiscard(false)}
+                          data-haptic="light"
+                          className="flex-1 min-h-[44px] rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDiscard}
+                          data-haptic="warning"
+                          className="flex-1 min-h-[44px] rounded-lg bg-neon-red/20 border border-neon-red/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-red"
+                        >
+                          Discard
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDiscard(true)}
+                      data-haptic="warning"
+                      className="w-full min-h-[52px] rounded-xl border border-border font-mono text-sm tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Discard
+                    </button>
+                  )}
                 </div>
               </div>
             )}
