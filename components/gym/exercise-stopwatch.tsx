@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
+import { useWakeLock } from '@/hooks/use-wake-lock'
 
 const PRESETS = [
   { label: '30s', seconds: 30 },
@@ -24,6 +25,8 @@ export function ExerciseStopwatch() {
   const endAtRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
 
+  useWakeLock(running)
+
   const clearTick = useCallback(() => {
     if (tickRef.current !== null) {
       window.clearInterval(tickRef.current)
@@ -31,31 +34,38 @@ export function ExerciseStopwatch() {
     }
   }, [])
 
-  const stop = useCallback(() => {
+  const halt = useCallback(() => {
     clearTick()
-    setRunning(false)
     endAtRef.current = null
+    setRunning(false)
   }, [clearTick])
 
-  const reset = useCallback(() => {
-    stop()
-    setFinished(false)
-    setRemaining(duration)
-  }, [stop, duration])
-
-  const startPreset = useCallback(
+  const resetToDuration = useCallback(
     (seconds: number) => {
-      stop()
+      halt()
       setFinished(false)
       setDuration(seconds)
       setRemaining(seconds)
+    },
+    [halt],
+  )
+
+  const selectPreset = useCallback(
+    (seconds: number) => {
+      resetToDuration(seconds)
       setOpen(true)
       endAtRef.current = Date.now() + seconds * 1000
       setRunning(true)
       Haptic.selection()
     },
-    [stop],
+    [resetToDuration],
   )
+
+  const reset = useCallback(() => {
+    halt()
+    setFinished(false)
+    setRemaining(duration)
+  }, [halt, duration])
 
   useEffect(() => {
     if (!running || endAtRef.current === null) return
@@ -88,7 +98,7 @@ export function ExerciseStopwatch() {
       if (endAtRef.current !== null) {
         setRemaining(Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000)))
       }
-      stop()
+      halt()
       Haptic.light()
       return
     }
@@ -119,7 +129,7 @@ export function ExerciseStopwatch() {
         )}
       >
         <Timer className="w-4 h-4" />
-        {running ? `Rest · ${formatTime(remaining)}` : open ? 'Hide timer' : 'Rest timer'}
+        {running ? `${formatTime(remaining)}` : open ? 'Hide timer' : 'Timer'}
       </button>
 
       {open && (
@@ -140,17 +150,16 @@ export function ExerciseStopwatch() {
             )}
           </div>
 
-          {/* Presets */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             {PRESETS.map((preset) => (
               <button
                 key={preset.label}
                 type="button"
-                onClick={() => startPreset(preset.seconds)}
+                onClick={() => selectPreset(preset.seconds)}
                 data-haptic="selection"
                 className={cn(
                   'min-h-[40px] rounded-lg border font-mono text-sm font-bold tracking-wider transition-colors',
-                  duration === preset.seconds
+                  duration === preset.seconds && (running || remaining > 0 || finished)
                     ? 'bg-neon-orange/20 border-neon-orange/50 text-neon-orange'
                     : 'border-border text-muted-foreground hover:border-neon-orange/40 hover:text-neon-orange',
                 )}
@@ -160,7 +169,6 @@ export function ExerciseStopwatch() {
             ))}
           </div>
 
-          {/* Countdown display */}
           <div className="relative mb-4">
             <div
               className="absolute inset-0 rounded-lg opacity-20 transition-all duration-300"
@@ -188,7 +196,6 @@ export function ExerciseStopwatch() {
             </div>
           </div>
 
-          {/* Controls */}
           <div className="flex gap-2">
             <button
               type="button"

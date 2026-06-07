@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
 import program from '@/foundation-7-june.json'
 import type { DayLog, GymStore, ProgramExercise, SetLog, WorkoutKey } from './gym-tracker'
 import { isExerciseAddressed } from './gym-tracker'
@@ -40,6 +41,9 @@ export function WorkoutFlow({
   })
 
   const progressStripRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  usePreventPullToRefresh(scrollRef)
 
   // Scroll the active progress dot into view when step changes
   useEffect(() => {
@@ -126,7 +130,7 @@ export function WorkoutFlow({
   const currentLog = currentExercise ? dayLog.exercises[currentExercise.name] : undefined
 
   return (
-    <div className="min-h-[calc(100vh-57px)] flex flex-col">
+    <div className="min-h-[calc(100vh-57px)] flex flex-col overscroll-none">
       {/* Workout header row */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <button
@@ -195,7 +199,7 @@ export function WorkoutFlow({
       </div>
 
       {/* Exercise step — scrollable main content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-40">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-none px-4 pb-40">
         {currentExercise && (
           <div className="py-2">
             <ExerciseStep

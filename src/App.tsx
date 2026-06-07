@@ -9,11 +9,31 @@ import { SettingsPage } from '@/components/settings/settings-page'
 
 type AppView = 'home' | 'gym' | 'metrics' | 'settings'
 
+type GymEntry = {
+  date: string
+  view: 'flow'
+}
+
 function AppRoutes() {
   const [currentView, setCurrentView] = useState<AppView>('home')
+  const [gymEntry, setGymEntry] = useState<GymEntry>()
+
+  const openGym = (entry?: GymEntry) => {
+    setGymEntry(entry)
+    setCurrentView('gym')
+  }
 
   if (currentView === 'gym') {
-    return <GymTracker onBack={() => setCurrentView('home')} />
+    return (
+      <GymTracker
+        onBack={() => {
+          setGymEntry(undefined)
+          setCurrentView('home')
+        }}
+        initialDate={gymEntry?.date}
+        initialView={gymEntry?.view}
+      />
+    )
   }
 
   if (currentView === 'metrics') {
@@ -26,7 +46,8 @@ function AppRoutes() {
 
   return (
     <HomePage
-      onStartTraining={() => setCurrentView('gym')}
+      onStartTraining={() => openGym()}
+      onContinueWorkout={(date) => openGym({ date, view: 'flow' })}
       onOpenMetrics={() => setCurrentView('metrics')}
       onOpenSettings={() => setCurrentView('settings')}
     />

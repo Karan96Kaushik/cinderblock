@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
-import { Calendar, ChevronRight, Dumbbell, Ruler, TrendingUp } from 'lucide-react'
+import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns'
+import { Calendar, ChevronRight, Ruler, TrendingUp } from 'lucide-react'
 import program from '@/foundation-7-june.json'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
-import { GlitchText } from '@/components/glitch-text'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
 import { readGymLog } from '@/lib/sync/storage'
-import type { GymStore } from '@/components/gym/gym-tracker'
-import { isExerciseAddressed } from '@/components/gym/gym-tracker'
+import type { DayLog, GymStore } from '@/components/gym/gym-tracker'
+import {
+  getCurrentWeekEntries,
+  getDayStatus,
+  getIncompleteWorkoutEntry,
+  getLastWorkoutEntry,
+  isExerciseAddressed,
+  WORKOUT_LABELS,
+} from '@/components/gym/gym-tracker'
+import {
+  formatDayLogSummary,
+  WorkoutSessionDetails,
+} from '@/components/gym/workout-session-details'
+import { cn } from '@/lib/utils'
 
 interface HomePageProps {
   onStartTraining: () => void
+  onContinueWorkout: (date: string) => void
   onOpenMetrics: () => void
   onOpenSettings: () => void
 }
@@ -28,13 +40,57 @@ function getTrainingStats(store: GymStore) {
   return { sessions: dates.length, completed: completed.length }
 }
 
-export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: HomePageProps) {
+const WEEK_STATUS_STYLES = {
+  complete: 'bg-neon-orange/20 text-neon-orange',
+  partial: 'bg-neon-yellow/10 text-neon-yellow',
+  rest: 'bg-muted text-muted-foreground',
+  empty: 'bg-muted/50 text-muted-foreground',
+} as const
+
+const WEEK_STATUS_LABELS = {
+  complete: 'Complete',
+  partial: 'In progress',
+  rest: 'Rest',
+  empty: 'Empty',
+} as const
+
+function WeekWorkoutRow({ date, log }: { date: string; log: DayLog }) {
+  const status = getDayStatus(log)
+  const displayDate = format(parseISO(`${date}T12:00:00`), 'EEE, MMM d')
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+      <span className="font-mono text-xs text-muted-foreground w-[88px] shrink-0">{displayDate}</span>
+      <span className="font-sans text-sm text-foreground flex-1 min-w-0 truncate">
+        {formatDayLogSummary(log)}
+      </span>
+      <span
+        className={cn(
+          'font-mono text-[10px] uppercase px-2 py-0.5 rounded shrink-0',
+          WEEK_STATUS_STYLES[status],
+        )}
+      >
+        {WEEK_STATUS_LABELS[status]}
+      </span>
+    </div>
+  )
+}
+
+export function HomePage({
+  onStartTraining,
+  onContinueWorkout,
+  onOpenMetrics,
+  onOpenSettings,
+}: HomePageProps) {
+  const [store, setStore] = useState<GymStore>({})
   const [stats, setStats] = useState({ sessions: 0, completed: 0 })
   const [latestWeight, setLatestWeight] = useState<string>()
   const [latestWaist, setLatestWaist] = useState<string>()
 
   useEffect(() => {
-    setStats(getTrainingStats(readGymLog()))
+    const gymLog = readGymLog()
+    setStore(gymLog)
+    setStats(getTrainingStats(gymLog))
 
     const metrics = getLatestMetrics()
     setLatestWeight(getLatestMetricValue(metrics, 'weight'))
@@ -43,6 +99,16 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
 
   const todayLabel = format(new Date(), 'EEEE, MMMM d')
   const scheduleEntries = Object.entries(program.schedule)
+
+  const incompleteWorkout = getIncompleteWorkoutEntry(store)
+  const lastWorkout = getLastWorkoutEntry(store)
+  const weekEntries = getCurrentWeekEntries(store)
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 })
+  const weekLabel = `${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d')}`
+  const weekCompleted = weekEntries.filter((e) => getDayStatus(e.log) === 'complete').length
+  const weekRest = weekEntries.filter((e) => getDayStatus(e.log) === 'rest').length
+  const hasStats = stats.sessions > 0 || stats.completed > 0 || latestWeight || latestWaist
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -54,86 +120,160 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
       />
 
       <main className="relative z-10 pt-24 pb-20">
-        <section className="max-w-3xl mx-auto px-4 py-10 md:py-16">
-          {/* Hero */}
-          <div className="flex flex-col items-center text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-card/50 border border-neon-orange/40 rounded-full mb-6 font-mono text-xs neon-border-orange">
-              <Dumbbell className="w-3.5 h-3.5 text-neon-orange" />
-              <span className="text-muted-foreground">STRENGTH PROGRAM</span>
-              <span className="text-neon-orange">// v{program.version}</span>
-            </div>
-
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-sans font-bold tracking-tight mb-4">
-              <GlitchText className="fire-gradient-text">FOUNDATION</GlitchText>
-              <br />
-              <span className="fire-gradient-text neon-text-orange">STRENGTH</span>
+        <section className="max-w-3xl mx-auto px-4 py-6 md:py-8">
+          {/* 1. Today + primary actions */}
+          <div className="mb-8">
+            <p className="font-mono text-xs text-muted-foreground mb-1">{todayLabel}</p>
+            <h1 className="font-sans text-xl font-bold text-foreground tracking-wide mb-4">
+              {program.name}
             </h1>
 
-            <p className="max-w-xl text-base md:text-lg text-muted-foreground font-mono leading-relaxed mb-8">
-              Track your 4-day split, log sets and reps, and build consistency week
-              after week — built for strength alongside running.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <button
-                onClick={onStartTraining}
-                data-haptic="success"
-                className="w-full sm:w-auto min-h-[52px] px-8 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
-              >
-                START TRAINING
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {incompleteWorkout ? (
+                <button
+                  onClick={() => onContinueWorkout(incompleteWorkout.date)}
+                  data-haptic="success"
+                  className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
+                >
+                  Continue {WORKOUT_LABELS[incompleteWorkout.log.workoutKey]}
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={onStartTraining}
+                  data-haptic="success"
+                  className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
+                >
+                  Start training
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={onOpenMetrics}
                 data-haptic="selection"
-                className="w-full sm:w-auto min-h-[52px] px-8 rounded-lg font-mono text-sm tracking-widest uppercase border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/50 transition-colors flex items-center justify-center gap-2"
+                className="min-h-[48px] px-6 rounded-lg font-mono text-sm tracking-widest uppercase border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/50 transition-colors flex items-center justify-center gap-2"
               >
                 <Ruler className="w-4 h-4" />
-                BODY METRICS
+                Metrics
               </button>
             </div>
 
-            <p className="font-mono text-xs text-muted-foreground mt-4">{todayLabel}</p>
+            {incompleteWorkout && (
+              <p className="font-mono text-xs text-muted-foreground mt-3">
+                {WORKOUT_LABELS[incompleteWorkout.log.workoutKey]} from{' '}
+                {format(parseISO(`${incompleteWorkout.date}T12:00:00`), 'EEE, MMM d')} — unfinished
+              </p>
+            )}
           </div>
 
-          {/* Stats from local log */}
-          {(stats.sessions > 0 || stats.completed > 0 || latestWeight || latestWaist) && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
-              {stats.sessions > 0 && (
-                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
-                  <div className="font-sans text-2xl font-bold text-neon-orange">{stats.sessions}</div>
-                  <div className="font-mono text-xs text-muted-foreground mt-1">SESSIONS LOGGED</div>
-                </div>
-              )}
-              {stats.completed > 0 && (
-                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
-                  <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.completed}</div>
-                  <div className="font-mono text-xs text-muted-foreground mt-1">COMPLETED</div>
-                </div>
-              )}
-              {latestWeight && (
-                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
-                  <div className="font-sans text-2xl font-bold text-foreground">
-                    {latestWeight}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">kg</span>
+          {/* 2. This week */}
+          <section className="mb-10">
+            <SectionDivider label="THIS WEEK" />
+            <div className="bg-card/50 border border-border rounded-lg p-4 md:p-5">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <div className="flex items-center gap-2 text-neon-orange mb-1">
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-sans text-sm font-bold text-foreground">{weekLabel}</span>
                   </div>
-                  <div className="font-mono text-xs text-muted-foreground mt-1">WEIGHT</div>
+                  {weekEntries.length === 0 && (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      No workouts logged yet this week.
+                    </p>
+                  )}
                 </div>
-              )}
-              {latestWaist && (
-                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
-                  <div className="font-sans text-2xl font-bold text-foreground">
-                    {latestWaist}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">cm</span>
+                {weekEntries.length > 0 && (
+                  <div className="text-right shrink-0">
+                    <div className="font-sans text-lg font-bold text-neon-orange">
+                      {weekCompleted}
+                      {weekRest > 0 && (
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {' '}
+                          + {weekRest} rest
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground uppercase">
+                      logged
+                    </div>
                   </div>
-                  <div className="font-mono text-xs text-muted-foreground mt-1">WAIST</div>
+                )}
+              </div>
+
+              {weekEntries.length > 0 && (
+                <div className="mb-4">
+                  {weekEntries.map(({ date, log }) => (
+                    <WeekWorkoutRow key={date} date={date} log={log} />
+                  ))}
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={onStartTraining}
+                data-haptic="selection"
+                className="w-full min-h-[40px] rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors"
+              >
+                Open training log
+              </button>
             </div>
+          </section>
+
+          {/* 3. Last workout */}
+          {lastWorkout && (
+            <section className="mb-10">
+              <SectionDivider label="LAST WORKOUT" />
+              <div className="-mx-4">
+                <WorkoutSessionDetails
+                  date={lastWorkout.date}
+                  log={lastWorkout.log}
+                  onOpenWorkout={() => onContinueWorkout(lastWorkout.date)}
+                />
+              </div>
+            </section>
           )}
 
-          {/* Goals */}
-          <section id="program" className="mb-14">
+          {/* 4. Stats */}
+          {hasStats && (
+            <section className="mb-10">
+              <SectionDivider label="STATS" />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {stats.sessions > 0 && (
+                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                    <div className="font-sans text-2xl font-bold text-neon-orange">{stats.sessions}</div>
+                    <div className="font-mono text-xs text-muted-foreground mt-1">Sessions</div>
+                  </div>
+                )}
+                {stats.completed > 0 && (
+                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                    <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.completed}</div>
+                    <div className="font-mono text-xs text-muted-foreground mt-1">Completed</div>
+                  </div>
+                )}
+                {latestWeight && (
+                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                    <div className="font-sans text-2xl font-bold text-foreground">
+                      {latestWeight}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">kg</span>
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground mt-1">Weight</div>
+                  </div>
+                )}
+                {latestWaist && (
+                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                    <div className="font-sans text-2xl font-bold text-foreground">
+                      {latestWaist}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">cm</span>
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground mt-1">Waist</div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* 5. Program reference */}
+          <section id="program" className="mb-10">
             <SectionDivider label="PROGRAM GOALS" />
             <div className="grid sm:grid-cols-2 gap-3">
               {program.goal.map((goal, index) => (
@@ -150,8 +290,7 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
             </div>
           </section>
 
-          {/* Weekly schedule */}
-          <section id="schedule" className="mb-14">
+          <section id="schedule" className="mb-10">
             <SectionDivider label="WEEKLY SCHEDULE" />
             <div className="bg-card/50 border border-border rounded-lg p-4 md:p-6">
               <div className="flex items-center gap-2 mb-4 text-neon-orange">
@@ -177,8 +316,7 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
             </div>
           </section>
 
-          {/* Workouts overview */}
-          <section className="mb-14">
+          <section className="mb-10">
             <SectionDivider label="WORKOUT TYPES" />
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(program.workouts).map(([key, workout]) => (
@@ -201,8 +339,7 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
             </div>
           </section>
 
-          {/* Progression */}
-          <section id="progression" className="mb-14">
+          <section id="progression" className="mb-6">
             <SectionDivider label="PROGRESSION" />
             <div className="bg-card/50 border border-border rounded-lg p-5 md:p-6">
               <div className="flex items-center gap-2 mb-3">
@@ -227,27 +364,6 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
               </div>
             </div>
           </section>
-
-          {/* Bottom CTA */}
-          <div className="text-center pt-4 space-y-3">
-            <p className="font-mono text-xs text-muted-foreground mb-4">
-              Ready to log today&apos;s session?
-            </p>
-            <button
-              onClick={onStartTraining}
-              data-haptic="selection"
-              className="w-full sm:w-auto min-h-[48px] px-6 rounded-lg border border-neon-orange/50 font-mono text-sm tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors"
-            >
-              OPEN TRAINING LOG
-            </button>
-            <button
-              onClick={onOpenSettings}
-              data-haptic="selection"
-              className="w-full sm:w-auto min-h-[40px] px-6 rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors"
-            >
-              SETTINGS
-            </button>
-          </div>
         </section>
       </main>
     </div>
@@ -256,7 +372,7 @@ export function HomePage({ onStartTraining, onOpenMetrics, onOpenSettings }: Hom
 
 function SectionDivider({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-4 mb-6">
+    <div className="flex items-center gap-4 mb-4">
       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neon-orange/50 to-transparent" />
       <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground shrink-0">
         [{label}]

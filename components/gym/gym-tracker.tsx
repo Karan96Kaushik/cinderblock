@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { format } from 'date-fns'
+import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns'
 import program from '@/foundation-7-june.json'
 import { useAuth } from '@/hooks/use-auth'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
@@ -90,6 +90,42 @@ export function isDayComplete(log: DayLog | undefined): boolean {
   return getDayStatus(log) === 'complete' || getDayStatus(log) === 'rest'
 }
 
+export function getLastWorkoutEntry(
+  store: GymStore,
+): { date: string; log: DayLog } | null {
+  const dates = Object.keys(store).sort((a, b) => b.localeCompare(a))
+  for (const date of dates) {
+    const log = store[date]
+    if (log && log.workoutKey !== 'rest') return { date, log }
+  }
+  return null
+}
+
+export function getIncompleteWorkoutEntry(
+  store: GymStore,
+): { date: string; log: DayLog } | null {
+  const entry = getLastWorkoutEntry(store)
+  if (!entry) return null
+  if (getDayStatus(entry.log) === 'partial') return entry
+  return null
+}
+
+export function getCurrentWeekEntries(
+  store: GymStore,
+): Array<{ date: string; log: DayLog }> {
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
+
+  return Object.keys(store)
+    .filter((date) => {
+      const day = parseISO(`${date}T12:00:00`)
+      return day >= weekStart && day <= weekEnd
+    })
+    .sort()
+    .map((date) => ({ date, log: store[date]! }))
+}
+
 type WorkoutMap = Record<string, { name: string; exercises: ProgramExercise[] }>
 
 function initExercises(key: WorkoutKey): Record<string, ExerciseLog> {
@@ -110,20 +146,33 @@ function initExercises(key: WorkoutKey): Record<string, ExerciseLog> {
 
 interface GymTrackerProps {
   onBack: () => void
+  initialDate?: string
+  initialView?: View
 }
 
 type View = 'calendar' | 'selector' | 'flow'
 
-export function GymTracker({ onBack }: GymTrackerProps) {
+function resolveInitialView(
+  initialView: View | undefined,
+  initialDate: string | undefined,
+  store: GymStore,
+): View {
+  if (initialView === 'flow' && initialDate) {
+    const log = store[initialDate]
+    if (log && log.workoutKey !== 'rest') return 'flow'
+    if (log) return 'selector'
+  }
+  return initialView ?? 'calendar'
+}
+
+export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps) {
   const { token } = useAuth()
   const today = format(new Date(), 'yyyy-MM-dd')
-  const [view, setView] = useState<View>('calendar')
-  const [selectedDate, setSelectedDate] = useState<string>(today)
-  const [store, setStore] = useState<GymStore>({})
-
-  useEffect(() => {
-    setStore(readGymLog())
-  }, [])
+  const [store, setStore] = useState<GymStore>(() => readGymLog())
+  const [view, setView] = useState<View>(() =>
+    resolveInitialView(initialView, initialDate, readGymLog()),
+  )
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate ?? today)
 
   const saveStore = useCallback(
     (newStore: GymStore) => {
