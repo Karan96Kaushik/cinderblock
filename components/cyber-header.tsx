@@ -9,10 +9,11 @@ export function CyberHeader({ onTrainingClick }: CyberHeaderProps) {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <a href="/" className="flex items-center gap-3 group">
-            <div className="relative">
-              <div className="w-10 h-10 border-2 border-neon-orange rotate-45 group-hover:border-neon-red transition-colors duration-300 animate-fire" />
-              <div className="absolute inset-0 w-10 h-10 border-2 border-neon-yellow/60 rotate-45 scale-75" />
-            </div>
+            <img
+              src="/apple-icon.png"
+              alt="CINDERBLOCK"
+              className="w-10 h-10 rounded-md object-cover group-hover:opacity-90 transition-opacity"
+            />
             <span className="font-sans text-xl font-bold tracking-widest fire-gradient-text neon-text-orange">
               CINDERBLOCK
             </span>
@@ -20,9 +21,9 @@ export function CyberHeader({ onTrainingClick }: CyberHeaderProps) {
 
           {/* Nav */}
           <nav className="hidden md:flex items-center gap-8">
-            <NavLink href="#systems">SYSTEMS</NavLink>
-            <NavLink href="#protocols">PROTOCOLS</NavLink>
-            <NavLink href="#contact">CONTACT</NavLink>
+            <NavLink href="#program">PROGRAM</NavLink>
+            <NavLink href="#schedule">SCHEDULE</NavLink>
+            <NavLink href="#progression">PROGRESSION</NavLink>
             {onTrainingClick && (
               <button
                 onClick={onTrainingClick}

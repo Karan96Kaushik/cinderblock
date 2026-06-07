@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "CINDERBLOCK Push Notifications",
+  "name": "CINDERBLOCK Foundation Strength",
   "short_name": "CINDERBLOCK",
-  "description": "Neural link push notification interface. Connect to the network and receive real-time data streams.",
+  "description": "Track your 4-day strength program, log workouts, and monitor progress over time.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",
