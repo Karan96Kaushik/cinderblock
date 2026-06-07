@@ -34,6 +34,9 @@ export type ThemeTokens = {
   neonAmber: string
   gridColor: string
   themeColor: string
+  cyberVignette: string
+  cyberGridOpacity: number
+  cyberScanlineOpacity: number
 }
 
 export type ThemePreset = {
@@ -60,7 +63,16 @@ export function normalizeThemeKey(value: unknown): ThemePresetKey {
 }
 
 const SURFACE_VAR_MAP: Record<
-  Exclude<keyof ThemeTokens, 'primaryText' | 'secondaryText' | 'accentText' | 'themeColor'>,
+  Exclude<
+    keyof ThemeTokens,
+    | 'primaryText'
+    | 'secondaryText'
+    | 'accentText'
+    | 'themeColor'
+    | 'cyberVignette'
+    | 'cyberGridOpacity'
+    | 'cyberScanlineOpacity'
+  >,
   string
 > = {
   background: '--background',
@@ -130,6 +142,10 @@ export const THEME_PRESETS: Record<ThemePresetKey, ThemePreset> = {
       neonAmber: 'oklch(0.74 0.18 60)',
       gridColor: 'oklch(0.24 0.055 45)',
       themeColor: '#1a1208',
+      cyberVignette:
+        'radial-gradient(ellipse at center, transparent 0%, oklch(0.08 0.03 45 / 0.9) 100%)',
+      cyberGridOpacity: 0.3,
+      cyberScanlineOpacity: 0.2,
     },
   },
   green: {
@@ -166,6 +182,10 @@ export const THEME_PRESETS: Record<ThemePresetKey, ThemePreset> = {
       neonAmber: 'oklch(0.72 0.13 145)',
       gridColor: 'oklch(0.22 0.045 155)',
       themeColor: '#0a1410',
+      cyberVignette:
+        'radial-gradient(ellipse at center, transparent 0%, oklch(0.08 0.03 155 / 0.9) 100%)',
+      cyberGridOpacity: 0.3,
+      cyberScanlineOpacity: 0.2,
     },
   },
   blue: {
@@ -202,6 +222,10 @@ export const THEME_PRESETS: Record<ThemePresetKey, ThemePreset> = {
       neonAmber: 'oklch(0.72 0.12 240)',
       gridColor: 'oklch(0.22 0.038 250)',
       themeColor: '#0a1018',
+      cyberVignette:
+        'radial-gradient(ellipse at center, transparent 0%, oklch(0.08 0.03 250 / 0.9) 100%)',
+      cyberGridOpacity: 0.3,
+      cyberScanlineOpacity: 0.2,
     },
   },
   white: {
@@ -238,6 +262,10 @@ export const THEME_PRESETS: Record<ThemePresetKey, ThemePreset> = {
       neonAmber: 'oklch(0.55 0.15 250)',
       gridColor: 'oklch(0.91 0.012 260)',
       themeColor: '#fafafa',
+      cyberVignette:
+        'radial-gradient(ellipse at center, transparent 22%, oklch(0.16 0.025 260 / 0.58) 100%)',
+      cyberGridOpacity: 0.14,
+      cyberScanlineOpacity: 0.1,
     },
   },
   cream: {
@@ -274,6 +302,10 @@ export const THEME_PRESETS: Record<ThemePresetKey, ThemePreset> = {
       neonAmber: 'oklch(0.58 0.17 65)',
       gridColor: 'oklch(0.88 0.022 75)',
       themeColor: '#f5f0e8',
+      cyberVignette:
+        'radial-gradient(ellipse at center, transparent 22%, oklch(0.20 0.035 55 / 0.52) 100%)',
+      cyberGridOpacity: 0.16,
+      cyberScanlineOpacity: 0.1,
     },
   },
 }
@@ -306,6 +338,10 @@ export function applyTheme(themeKey: ThemePresetKey) {
   }
 
   syncTextSemanticVars(root, tokens)
+
+  root.style.setProperty('--cyber-vignette', tokens.cyberVignette)
+  root.style.setProperty('--cyber-grid-opacity', String(tokens.cyberGridOpacity))
+  root.style.setProperty('--cyber-scanline-opacity', String(tokens.cyberScanlineOpacity))
 
   root.style.colorScheme = preset.mode
   root.dataset.theme = themeKey

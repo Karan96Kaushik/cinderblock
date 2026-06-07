@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns'
-import { Calendar, ChevronRight, Ruler, TrendingUp } from 'lucide-react'
+import { Calendar, ChevronRight, Footprints, Ruler, TrendingUp } from 'lucide-react'
 import program from '@/foundation-7-june.json'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 interface HomePageProps {
   onStartTraining: () => void
   onContinueWorkout: (date: string) => void
+  onStartRunning: () => void
   onOpenMetrics: () => void
   onOpenSettings: () => void
 }
@@ -79,6 +80,7 @@ function WeekWorkoutRow({ date, log }: { date: string; log: DayLog }) {
 export function HomePage({
   onStartTraining,
   onContinueWorkout,
+  onStartRunning,
   onOpenMetrics,
   onOpenSettings,
 }: HomePageProps) {
@@ -115,11 +117,12 @@ export function HomePage({
       <CyberGrid />
       <CyberHeader
         onTrainingClick={onStartTraining}
+        onRunningClick={onStartRunning}
         onMetricsClick={onOpenMetrics}
         onSettingsClick={onOpenSettings}
       />
 
-      <main className="relative z-10 pt-24 pb-20">
+      <main className="relative z-10 pt-24 pb-20 home-page-content">
         <section className="max-w-3xl mx-auto px-4 py-6 md:py-8">
           {/* 1. Today + primary actions */}
           <div className="mb-8">
@@ -149,6 +152,14 @@ export function HomePage({
                 </button>
               )}
               <button
+                onClick={onStartRunning}
+                data-haptic="selection"
+                className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase border border-neon-orange/50 text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <Footprints className="w-4 h-4" />
+                Start run
+              </button>
+              <button
                 onClick={onOpenMetrics}
                 data-haptic="selection"
                 className="min-h-[48px] px-6 rounded-lg font-mono text-sm tracking-widest uppercase border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/50 transition-colors flex items-center justify-center gap-2"
@@ -169,7 +180,7 @@ export function HomePage({
           {/* 2. This week */}
           <section className="mb-10">
             <SectionDivider label="THIS WEEK" />
-            <div className="bg-card/50 border border-border rounded-lg p-4 md:p-5">
+            <div className="home-surface border border-border rounded-lg p-4 md:p-5">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <div className="flex items-center gap-2 text-neon-orange mb-1">
@@ -223,7 +234,7 @@ export function HomePage({
           {lastWorkout && (
             <section className="mb-10">
               <SectionDivider label="LAST WORKOUT" />
-              <div className="-mx-4">
+              <div className="-mx-4 home-page-panel">
                 <WorkoutSessionDetails
                   date={lastWorkout.date}
                   log={lastWorkout.log}
@@ -239,19 +250,19 @@ export function HomePage({
               <SectionDivider label="STATS" />
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {stats.sessions > 0 && (
-                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="home-surface border border-border rounded-lg p-4 text-center">
                     <div className="font-sans text-2xl font-bold text-neon-orange">{stats.sessions}</div>
                     <div className="font-mono text-xs text-muted-foreground mt-1">Sessions</div>
                   </div>
                 )}
                 {stats.completed > 0 && (
-                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="home-surface border border-border rounded-lg p-4 text-center">
                     <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.completed}</div>
                     <div className="font-mono text-xs text-muted-foreground mt-1">Completed</div>
                   </div>
                 )}
                 {latestWeight && (
-                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="home-surface border border-border rounded-lg p-4 text-center">
                     <div className="font-sans text-2xl font-bold text-foreground">
                       {latestWeight}
                       <span className="text-sm font-normal text-muted-foreground ml-1">kg</span>
@@ -260,7 +271,7 @@ export function HomePage({
                   </div>
                 )}
                 {latestWaist && (
-                  <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="home-surface border border-border rounded-lg p-4 text-center">
                     <div className="font-sans text-2xl font-bold text-foreground">
                       {latestWaist}
                       <span className="text-sm font-normal text-muted-foreground ml-1">cm</span>
@@ -279,7 +290,7 @@ export function HomePage({
               {program.goal.map((goal, index) => (
                 <div
                   key={goal}
-                  className="flex items-start gap-3 bg-card/50 border border-border rounded-lg p-4"
+                  className="flex items-start gap-3 home-surface border border-border rounded-lg p-4"
                 >
                   <span className="font-mono text-xs text-neon-orange shrink-0 pt-0.5">
                     {String(index + 1).padStart(2, '0')}
@@ -292,7 +303,7 @@ export function HomePage({
 
           <section id="schedule" className="mb-10">
             <SectionDivider label="WEEKLY SCHEDULE" />
-            <div className="bg-card/50 border border-border rounded-lg p-4 md:p-6">
+            <div className="home-surface border border-border rounded-lg p-4 md:p-6">
               <div className="flex items-center gap-2 mb-4 text-neon-orange">
                 <Calendar className="w-4 h-4" />
                 <span className="font-mono text-xs uppercase tracking-wider">4-day split + running</span>
@@ -322,7 +333,7 @@ export function HomePage({
               {Object.entries(program.workouts).map(([key, workout]) => (
                 <div
                   key={key}
-                  className="bg-card/40 border border-border rounded-lg p-4 hover:border-neon-orange/40 transition-colors"
+                  className="home-surface-muted border border-border rounded-lg p-4 hover:border-neon-orange/40 transition-colors"
                 >
                   <div
                     className={`font-sans text-sm font-bold tracking-wider uppercase mb-1 ${
@@ -341,7 +352,7 @@ export function HomePage({
 
           <section id="progression" className="mb-6">
             <SectionDivider label="PROGRESSION" />
-            <div className="bg-card/50 border border-border rounded-lg p-5 md:p-6">
+            <div className="home-surface border border-border rounded-lg p-5 md:p-6">
               <div className="flex items-center gap-2 mb-3">
                 <TrendingUp className="w-4 h-4 text-neon-yellow" />
                 <span className="font-sans text-sm font-bold text-foreground">

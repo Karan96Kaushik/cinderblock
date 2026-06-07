@@ -5,9 +5,10 @@ import { HapticInit } from '@/components/haptic-init'
 import { HomePage } from '@/components/home-page'
 import { GymTracker } from '@/components/gym/gym-tracker'
 import { MetricsTracker } from '@/components/metrics/metrics-tracker'
+import { RunningTracker } from '@/components/running/running-tracker'
 import { SettingsPage } from '@/components/settings/settings-page'
 
-type AppView = 'home' | 'gym' | 'metrics' | 'settings'
+type AppView = 'home' | 'gym' | 'running' | 'metrics' | 'settings'
 
 type GymEntry = {
   date: string
@@ -36,6 +37,10 @@ function AppRoutes() {
     )
   }
 
+  if (currentView === 'running') {
+    return <RunningTracker onBack={() => setCurrentView('home')} />
+  }
+
   if (currentView === 'metrics') {
     return <MetricsTracker onBack={() => setCurrentView('home')} />
   }
@@ -48,6 +53,7 @@ function AppRoutes() {
     <HomePage
       onStartTraining={() => openGym()}
       onContinueWorkout={(date) => openGym({ date, view: 'flow' })}
+      onStartRunning={() => setCurrentView('running')}
       onOpenMetrics={() => setCurrentView('metrics')}
       onOpenSettings={() => setCurrentView('settings')}
     />

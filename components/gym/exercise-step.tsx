@@ -233,7 +233,7 @@ export function ExerciseStep({
         </div>
       )}
 
-      {isActive && <ExerciseStopwatch key={exercise.name} />}
+      {isActive && <ExerciseStopwatch key={exercise.name} sessionLabel={exercise.name} />}
 
       {/* Notes (collapsible) */}
       {exercise.notes && exercise.notes.length > 0 && (

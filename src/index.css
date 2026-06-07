@@ -58,6 +58,11 @@
   --text-primary: var(--foreground);
   --text-secondary: var(--muted-foreground);
   --text-accent: var(--neon-orange);
+
+  /* CyberGrid overlay — overridden by theme presets */
+  --cyber-vignette: radial-gradient(ellipse at center, transparent 0%, oklch(0.08 0.03 45 / 0.9) 100%);
+  --cyber-grid-opacity: 0.3;
+  --cyber-scanline-opacity: 0.2;
 }
 
 .dark {
@@ -252,6 +257,19 @@
   background-size: 50px 50px;
 }
 
+.cyber-grid-layer {
+  opacity: var(--cyber-grid-opacity);
+}
+
+.cyber-vignette {
+  background: var(--cyber-vignette);
+}
+
+.cyber-scanline {
+  background-color: color-mix(in oklch, var(--neon-orange) calc(var(--cyber-scanline-opacity) * 100%), transparent);
+  box-shadow: 0 0 20px color-mix(in oklch, var(--neon-orange) calc(var(--cyber-scanline-opacity) * 100%), transparent);
+}
+
 /* ============================================================
    NEON GLOW UTILITIES — FIRE PALETTE
    ============================================================ */
@@ -283,7 +301,37 @@
   box-shadow:
     0 0 6px  var(--neon-orange),
     0 0 14px var(--neon-orange),
-    inset 0 0 6px oklch(0.72 0.22 42 / 0.25);
+    inset 0 0 6px color-mix(in oklch, var(--neon-orange) 25%, transparent);
+}
+
+/* Light themes — no vignette, softer glows, solid home surfaces */
+[data-theme-mode='light'] .cyber-vignette {
+  display: none;
+}
+
+[data-theme-mode='light'] .neon-text-orange {
+  text-shadow:
+    0 0 2px color-mix(in oklch, var(--neon-orange) 35%, transparent),
+    0 0 8px color-mix(in oklch, var(--neon-orange) 20%, transparent);
+}
+
+[data-theme-mode='light'] .neon-border-orange {
+  box-shadow:
+    0 0 4px color-mix(in oklch, var(--neon-orange) 45%, transparent),
+    0 0 10px color-mix(in oklch, var(--neon-orange) 25%, transparent),
+    inset 0 0 4px color-mix(in oklch, var(--neon-orange) 12%, transparent);
+}
+
+[data-theme-mode='light'] .home-surface {
+  background-color: color-mix(in oklch, var(--card) 94%, var(--background));
+}
+
+[data-theme-mode='light'] .home-surface-muted {
+  background-color: color-mix(in oklch, var(--card) 88%, var(--background));
+}
+
+[data-theme-mode='light'] .home-page-panel [class*='bg-card'] {
+  background-color: color-mix(in oklch, var(--card) 94%, var(--background));
 }
 
 .neon-border-red {

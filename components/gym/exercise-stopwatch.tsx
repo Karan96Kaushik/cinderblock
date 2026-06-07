@@ -3,6 +3,10 @@ import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
 import { useWakeLock } from '@/hooks/use-wake-lock'
+import { useSettings } from '@/hooks/use-settings'
+import { useMediaSession } from '@/hooks/use-media-session'
+import { MediaTrackControls } from '@/components/media-track-controls'
+import { AlwaysAwakeToggle } from '@/components/always-awake-toggle'
 
 const PRESETS = [
   { label: '30s', seconds: 30 },
@@ -16,7 +20,8 @@ function formatTime(totalSeconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function ExerciseStopwatch() {
+export function ExerciseStopwatch({ sessionLabel = 'Rest timer' }: { sessionLabel?: string }) {
+  const { settings } = useSettings()
   const [open, setOpen] = useState(false)
   const [duration, setDuration] = useState(0)
   const [remaining, setRemaining] = useState(0)
@@ -25,7 +30,7 @@ export function ExerciseStopwatch() {
   const endAtRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
 
-  useWakeLock(running)
+  useWakeLock(settings.alwaysAwake && running)
 
   const clearTick = useCallback(() => {
     if (tickRef.current !== null) {
@@ -113,6 +118,23 @@ export function ExerciseStopwatch() {
 
   const progress = duration > 0 ? remaining / duration : 0
   const activePreset = PRESETS.find((p) => p.seconds === duration)?.label
+  const timerActive = duration > 0 && (running || remaining > 0) && !finished
+
+  const toggleRunRef = useRef(toggleRun)
+  toggleRunRef.current = toggleRun
+
+  useMediaSession({
+    enabled: timerActive,
+    title: finished ? 'Rest complete' : `${sessionLabel} · ${formatTime(remaining)}`,
+    artist: 'CINDERBLOCK',
+    album: activePreset ? `${activePreset} rest` : 'Rest stopwatch',
+    playbackState: running ? 'playing' : 'paused',
+    duration,
+    position: Math.max(0, duration - remaining),
+    enableTrackControls: true,
+    onPlay: () => toggleRunRef.current(),
+    onPause: () => toggleRunRef.current(),
+  })
 
   return (
     <div className="mb-5">
@@ -235,6 +257,9 @@ export function ExerciseStopwatch() {
               Reset
             </button>
           </div>
+
+          <MediaTrackControls compact className="mt-3" />
+          <AlwaysAwakeToggle active={timerActive} className="mt-2" />
         </div>
       )}
     </div>

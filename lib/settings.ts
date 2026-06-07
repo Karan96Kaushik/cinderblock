@@ -11,6 +11,7 @@ export type AppSettings = {
   fontSize: FontSizeKey
   fontPreset: FontPresetKey
   theme: ThemePresetKey
+  alwaysAwake: boolean
 }
 
 export const STORAGE_KEY = 'cinderblock_settings'
@@ -50,6 +51,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   fontSize: 'md',
   fontPreset: 'cinderblock',
   theme: 'orange',
+  alwaysAwake: true,
 }
 
 export function readSettings(): AppSettings {
@@ -62,6 +64,7 @@ export function readSettings(): AppSettings {
       fontPreset:
         parsed.fontPreset && parsed.fontPreset in FONT_PRESETS ? parsed.fontPreset : 'cinderblock',
       theme: normalizeThemeKey(parsed.theme),
+      alwaysAwake: typeof parsed.alwaysAwake === 'boolean' ? parsed.alwaysAwake : true,
     }
   } catch {
     return DEFAULT_SETTINGS

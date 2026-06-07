@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from 'react'
 import {
   ChevronRight,
   Dumbbell,
+  Footprints,
   LayoutGrid,
   Menu,
   Ruler,
@@ -14,11 +15,12 @@ import { AuthPanel } from '@/components/auth/auth-panel'
 
 interface CyberHeaderProps {
   onTrainingClick?: () => void
+  onRunningClick?: () => void
   onMetricsClick?: () => void
   onSettingsClick?: () => void
 }
 
-export function CyberHeader({ onTrainingClick, onMetricsClick, onSettingsClick }: CyberHeaderProps) {
+export function CyberHeader({ onTrainingClick, onRunningClick, onMetricsClick, onSettingsClick }: CyberHeaderProps) {
   const [open, setOpen] = useState(false)
   const drawerId = useId()
 
@@ -186,11 +188,20 @@ export function CyberHeader({ onTrainingClick, onMetricsClick, onSettingsClick }
                       onClick={() => handleAction(onTrainingClick)}
                     />
                     <DrawerLink
+                      label="Running"
+                      description="Warmup · run · cooldown"
+                      icon={Footprints}
+                      visible={open}
+                      delay={210}
+                      disabled={!onRunningClick}
+                      onClick={() => handleAction(onRunningClick)}
+                    />
+                    <DrawerLink
                       label="Metrics"
                       description="Weight & measurements"
                       icon={Ruler}
                       visible={open}
-                      delay={240}
+                      delay={270}
                       disabled={!onMetricsClick}
                       onClick={() => handleAction(onMetricsClick)}
                     />
@@ -199,7 +210,7 @@ export function CyberHeader({ onTrainingClick, onMetricsClick, onSettingsClick }
                       description="Fonts, history, alerts"
                       icon={Settings}
                       visible={open}
-                      delay={300}
+                      delay={330}
                       disabled={!onSettingsClick}
                       onClick={() => handleAction(onSettingsClick)}
                     />
