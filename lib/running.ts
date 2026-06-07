@@ -116,6 +116,10 @@ export type ActiveRunSession = {
   running: boolean
   started: boolean
   updatedAt: number
+  /** Run phase ended early; cooldown still in progress */
+  runEndedEarly?: boolean
+  /** Plan to log once cooldown completes */
+  earlyLoggedPlan?: RunningPlan
 }
 
 export type RestoredRunState = {

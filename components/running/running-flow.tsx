@@ -64,6 +64,11 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
   const [loggedPlan, setLoggedPlan] = useState<RunningPlan | null>(
     initial.finished ? initial.plan : null,
   )
+  const savedSession = useRef(readActiveRunSession()).current
+  const [runEndedEarly, setRunEndedEarly] = useState(() => Boolean(savedSession?.runEndedEarly))
+  const [earlyLoggedPlan, setEarlyLoggedPlan] = useState<RunningPlan | null>(
+    () => savedSession?.earlyLoggedPlan ?? null,
+  )
   const [phaseStartedAt, setPhaseStartedAt] = useState<number | null>(initial.phaseStartedAt)
   const [showRestoredBanner, setShowRestoredBanner] = useState(
     () => initial.started && !initial.finished,
@@ -128,28 +133,39 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
 
   const completeSession = useCallback(() => {
     halt()
+    const logged = runEndedEarly && earlyLoggedPlan ? earlyLoggedPlan : plan
+    const early = Boolean(runEndedEarly && earlyLoggedPlan)
     setFinished(true)
-    setEndedEarly(false)
-    setLoggedPlan(plan)
+    setEndedEarly(early)
+    setLoggedPlan(logged)
     clearActiveRunSession()
-    saveRunSession(plan, format(new Date(), 'yyyy-MM-dd'))
+    saveRunSession(logged, format(new Date(), 'yyyy-MM-dd'), early ? { endedEarly: true } : undefined)
     Haptic.success()
-  }, [halt, plan])
+  }, [earlyLoggedPlan, halt, plan, runEndedEarly])
 
   const endRunEarly = useCallback(() => {
+    if (phase !== 'run') return
+
     let currentRemaining = remaining
     if (running && endAtRef.current !== null) {
       currentRemaining = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000))
     }
     halt()
+
     const logged = buildLoggedRunPlan(plan, phaseIndex, currentRemaining)
-    setFinished(true)
-    setEndedEarly(true)
-    setLoggedPlan(logged)
-    clearActiveRunSession()
-    saveRunSession(logged, format(new Date(), 'yyyy-MM-dd'), { endedEarly: true })
+    setRunEndedEarly(true)
+    setEarlyLoggedPlan(logged)
+
+    const cooldownIndex = PHASE_ORDER.indexOf('cooldown')
+    const cooldownDuration = phaseDurationSeconds(plan, 'cooldown')
+    const startedAt = Date.now()
+    setPhaseIndex(cooldownIndex)
+    setRemaining(cooldownDuration)
+    setPhaseStartedAt(startedAt)
+    syncEndAtFromPhaseStart(startedAt, cooldownIndex)
+    setRunning(true)
     Haptic.warning()
-  }, [halt, phaseIndex, plan, remaining, running])
+  }, [halt, phase, phaseIndex, plan, remaining, running, syncEndAtFromPhaseStart])
 
   const advancePhase = useCallback(() => {
     const nextIndex = phaseIndex + 1
@@ -201,8 +217,22 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
       running,
       started,
       updatedAt: Date.now(),
+      ...(runEndedEarly && earlyLoggedPlan
+        ? { runEndedEarly: true, earlyLoggedPlan }
+        : {}),
     })
-  }, [plan, phaseIndex, phaseStartedAt, remaining, running, finished, sessionActive, notStarted])
+  }, [
+    plan,
+    phaseIndex,
+    phaseStartedAt,
+    remaining,
+    running,
+    finished,
+    sessionActive,
+    notStarted,
+    runEndedEarly,
+    earlyLoggedPlan,
+  ])
 
   const toggleRun = () => {
     if (finished) return
@@ -268,7 +298,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
           </p>
           {endedEarly && (
             <p className="font-mono text-xs text-muted-foreground/80 mb-8">
-              Warmup and cooldown logged from your session plan
+              Run ended early · warmup and cooldown from your session plan
             </p>
           )}
           {!endedEarly && <div className="mb-8" />}
@@ -287,6 +317,12 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
 
   return (
     <div className="px-4 pb-32">
+      {runEndedEarly && phase === 'cooldown' && (
+        <div className="mt-2 mb-5 rounded-xl border border-neon-yellow/30 bg-neon-yellow/5 px-4 py-3">
+          <p className="font-mono text-sm text-neon-yellow">Run ended early — cooldown</p>
+        </div>
+      )}
+
       {showRestoredBanner && (
         <div className="mt-2 mb-5 rounded-xl border border-neon-yellow/30 bg-neon-yellow/5 px-4 py-3">
           <p className="font-mono text-sm text-neon-yellow">Session restored</p>
@@ -402,7 +438,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
           </div>
         )}
 
-        {!notStarted && (
+        {phase === 'run' && !runEndedEarly && (
           <button
             type="button"
             onClick={endRunEarly}
