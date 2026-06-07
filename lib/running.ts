@@ -197,6 +197,10 @@ export function readRunLog(): RunSessionLog[] {
   }
 }
 
+export function writeRunLog(runs: RunSessionLog[]): void {
+  localStorage.setItem(RUN_LOG_STORAGE_KEY, JSON.stringify(runs))
+}
+
 export function saveRunSession(plan: RunningPlan, date: string): RunSessionLog {
   const entry: RunSessionLog = {
     id: `${date}-${Date.now()}`,
@@ -205,8 +209,21 @@ export function saveRunSession(plan: RunningPlan, date: string): RunSessionLog {
     completedAt: Date.now(),
   }
   const next = [entry, ...readRunLog()]
-  localStorage.setItem(RUN_LOG_STORAGE_KEY, JSON.stringify(next))
+  writeRunLog(next)
   return entry
+}
+
+export function deleteRunSession(id: string): void {
+  writeRunLog(readRunLog().filter((run) => run.id !== id))
+}
+
+export function removeRunsOlderThan(days: number): void {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+  writeRunLog(readRunLog().filter((run) => run.completedAt >= cutoff))
+}
+
+export function clearRunLog(): void {
+  writeRunLog([])
 }
 
 export function plansMatch(a: RunningPlan, b: RunningPlan): boolean {

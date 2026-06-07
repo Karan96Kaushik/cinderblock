@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns'
 import { Calendar, ChevronRight, Footprints, Ruler, TrendingUp } from 'lucide-react'
-import program from '@/foundation-7-june.json'
+import {
+  getScheduleSectionLabel,
+  getWorkoutLabel,
+  getWorkoutTextColorClass,
+  program,
+  REST_DAY_KEY,
+} from '@/lib/program'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
@@ -21,7 +27,6 @@ import {
   getIncompleteWorkoutEntry,
   getLastWorkoutEntry,
   isExerciseAddressed,
-  WORKOUT_LABELS,
 } from '@/components/gym/gym-tracker'
 import {
   formatDayLogSummary,
@@ -42,7 +47,7 @@ function getTrainingStats(store: GymStore) {
   const completed = dates.filter((date) => {
     const log = store[date]
     if (!log) return false
-    if (log.workoutKey === 'rest') return true
+    if (log.workoutKey === REST_DAY_KEY) return true
     const exercises = Object.values(log.exercises)
     return exercises.length > 0 && exercises.every((e) => isExerciseAddressed(e))
   })
@@ -207,7 +212,7 @@ export function HomePage({
                   data-haptic="success"
                   className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
                 >
-                  Continue {WORKOUT_LABELS[incompleteWorkout.log.workoutKey]}
+                  Continue {getWorkoutLabel(incompleteWorkout.log.workoutKey)}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               ) : (
@@ -240,7 +245,7 @@ export function HomePage({
 
             {incompleteWorkout && (
               <p className="font-mono text-xs text-muted-foreground mt-3">
-                {WORKOUT_LABELS[incompleteWorkout.log.workoutKey]} from{' '}
+                {getWorkoutLabel(incompleteWorkout.log.workoutKey)} from{' '}
                 {format(parseISO(`${incompleteWorkout.date}T12:00:00`), 'EEE, MMM d')} — unfinished
               </p>
             )}
@@ -400,7 +405,7 @@ export function HomePage({
             <div className="home-surface border border-border rounded-lg p-4 md:p-6">
               <div className="flex items-center gap-2 mb-4 text-neon-orange">
                 <Calendar className="w-4 h-4" />
-                <span className="font-mono text-xs uppercase tracking-wider">4-day split + running</span>
+                <span className="font-mono text-xs uppercase tracking-wider">{getScheduleSectionLabel()}</span>
               </div>
               <div className="space-y-3">
                 {scheduleEntries.map(([day, label], index) => (
@@ -430,9 +435,10 @@ export function HomePage({
                   className="home-surface-muted border border-border rounded-lg p-4 hover:border-neon-orange/40 transition-colors"
                 >
                   <div
-                    className={`font-sans text-sm font-bold tracking-wider uppercase mb-1 ${
-                      key.startsWith('upper') ? 'text-neon-orange' : 'text-neon-amber'
-                    }`}
+                    className={cn(
+                      'font-sans text-sm font-bold tracking-wider uppercase mb-1',
+                      getWorkoutTextColorClass(key),
+                    )}
                   >
                     {workout.name}
                   </div>

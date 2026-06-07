@@ -5,6 +5,7 @@ import {
   BellOff,
   ChevronDown,
   ChevronUp,
+  Footprints,
   Loader2,
   RotateCcw,
   Trash2,
@@ -25,45 +26,24 @@ import {
   type FontSizeKey,
   type ThemePresetKey,
 } from '@/lib/settings'
-import type { GymStore, WorkoutKey } from '@/components/gym/gym-tracker'
-import { isExerciseAddressed } from '@/components/gym/gym-tracker'
-import program from '@/foundation-7-june.json'
-
-const WORKOUT_LABELS: Record<WorkoutKey, string> = {
-  upperA: 'Upper A',
-  lowerA: 'Lower A',
-  upperB: 'Upper B',
-  lowerB: 'Lower B',
-  rest: 'Rest day',
-}
-
-const WORKOUT_KEYS: WorkoutKey[] = ['upperA', 'lowerA', 'upperB', 'lowerB', 'rest']
-
-type WorkoutMap = Record<string, { name: string; exercises: { name: string; sets: number }[] }>
-
-function initExercises(key: WorkoutKey): GymStore[string]['exercises'] {
-  if (key === 'rest') return {}
-  const workouts = program.workouts as WorkoutMap
-  const workout = workouts[key]
-  if (!workout) return {}
-  const result: GymStore[string]['exercises'] = {}
-  workout.exercises.forEach((ex) => {
-    result[ex.name] = {
-      sets: Array.from({ length: ex.sets }, () => ({ weight: '', reps: '' })),
-      completed: false,
-      skipped: false,
-    }
-  })
-  return result
-}
-
-function getDayStatus(log: GymStore[string]): 'complete' | 'partial' | 'rest' | 'empty' {
-  if (log.workoutKey === 'rest') return 'rest'
-  const exercises = Object.values(log.exercises)
-  if (exercises.length === 0) return 'empty'
-  if (exercises.every((e) => isExerciseAddressed(e))) return 'complete'
-  return 'partial'
-}
+import {
+  getSelectableWorkoutKeys,
+  getWorkoutLabel,
+  program,
+  REST_DAY_KEY,
+  type WorkoutKey,
+} from '@/lib/program'
+import type { GymStore } from '@/components/gym/gym-tracker'
+import { getDayStatus, initExercises } from '@/components/gym/gym-tracker'
+import {
+  clearRunLog,
+  deleteRunSession,
+  formatPlanSummary,
+  getRunTotalMinutes,
+  readRunLog,
+  removeRunsOlderThan,
+  type RunSessionLog,
+} from '@/lib/running'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -73,11 +53,15 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const { settings, setFontSize, setFontPreset, setTheme, resetSettings } = useSettings()
   const { token } = useAuth()
   const [gymStore, setGymStore] = useState<GymStore>({})
+  const [runLog, setRunLog] = useState<RunSessionLog[]>([])
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [confirmClear, setConfirmClear] = useState<'30d' | 'all' | null>(null)
+  const [confirmRunClear, setConfirmRunClear] = useState<'30d' | 'all' | null>(null)
 
   useEffect(() => {
     setGymStore(readGymLog())
+    setRunLog(readRunLog())
   }, [])
 
   const sortedEntries = useMemo(
@@ -108,8 +92,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     const existing = gymStore[date]
     if (existing?.workoutKey === key) return
 
-    if (key === 'rest') {
-      persistGym({ ...gymStore, [date]: { workoutKey: 'rest', exercises: {} } })
+    if (key === REST_DAY_KEY) {
+      persistGym({ ...gymStore, [date]: { workoutKey: REST_DAY_KEY, exercises: {} } })
     } else {
       persistGym({
         ...gymStore,
@@ -132,6 +116,27 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const clearAllWorkouts = () => {
     persistGym({})
     setConfirmClear(null)
+    Haptic.success()
+  }
+
+  const deleteRun = (id: string) => {
+    deleteRunSession(id)
+    setRunLog(readRunLog())
+    if (expandedRunId === id) setExpandedRunId(null)
+    Haptic.warning()
+  }
+
+  const removeRunsOlderThanDays = (days: number) => {
+    removeRunsOlderThan(days)
+    setRunLog(readRunLog())
+    setConfirmRunClear(null)
+    Haptic.success()
+  }
+
+  const clearAllRuns = () => {
+    clearRunLog()
+    setRunLog([])
+    setConfirmRunClear(null)
     Haptic.success()
   }
 
@@ -180,6 +185,19 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           onConfirmClear={setConfirmClear}
           onRemoveOlderThan={removeOlderThan}
           onClearAll={clearAllWorkouts}
+        />
+
+        <RunHistorySection
+          runs={runLog}
+          expandedRunId={expandedRunId}
+          confirmClear={confirmRunClear}
+          onToggleExpand={(id) =>
+            setExpandedRunId((prev) => (prev === id ? null : id))
+          }
+          onDelete={deleteRun}
+          onConfirmClear={setConfirmRunClear}
+          onRemoveOlderThan={removeRunsOlderThanDays}
+          onClearAll={clearAllRuns}
         />
       </div>
     </div>
@@ -625,7 +643,7 @@ function WorkoutHistorySection({
                       {format(parseISO(date + 'T12:00:00'), 'EEE, MMM d yyyy')}
                     </div>
                     <div className="font-mono text-xs text-muted-foreground mt-0.5">
-                      {WORKOUT_LABELS[log.workoutKey]}
+                      {getWorkoutLabel(log.workoutKey)}
                       {status === 'complete' && total > 0 && ` · ${completed}/${total} done`}
                       {status === 'partial' && total > 0 && ` · ${completed}/${total} in progress`}
                       {status === 'rest' && ' · logged'}
@@ -648,7 +666,7 @@ function WorkoutHistorySection({
                         Change workout
                       </p>
                       <div className="grid grid-cols-2 gap-2">
-                        {WORKOUT_KEYS.map((key) => (
+                        {getSelectableWorkoutKeys().map((key) => (
                           <button
                             key={key}
                             onClick={() => onChangeWorkout(date, key)}
@@ -660,7 +678,7 @@ function WorkoutHistorySection({
                                 : 'border-border text-muted-foreground hover:border-muted-foreground',
                             )}
                           >
-                            {WORKOUT_LABELS[key]}
+                            {getWorkoutLabel(key)}
                           </button>
                         ))}
                       </div>
@@ -715,6 +733,166 @@ function WorkoutHistorySection({
                 className="w-full min-h-[40px] rounded-lg border border-neon-red/30 font-mono text-xs text-neon-red hover:bg-neon-red/10 transition-colors"
               >
                 Clear all workout history
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
+function RunHistorySection({
+  runs,
+  expandedRunId,
+  confirmClear,
+  onToggleExpand,
+  onDelete,
+  onConfirmClear,
+  onRemoveOlderThan,
+  onClearAll,
+}: {
+  runs: RunSessionLog[]
+  expandedRunId: string | null
+  confirmClear: '30d' | 'all' | null
+  onToggleExpand: (id: string) => void
+  onDelete: (id: string) => void
+  onConfirmClear: (mode: '30d' | 'all' | null) => void
+  onRemoveOlderThan: (days: number) => void
+  onClearAll: () => void
+}) {
+  return (
+    <SectionCard title="Run history">
+      <p className="font-mono text-xs text-muted-foreground mb-4 leading-relaxed">
+        View or remove completed run sessions. Deleting a run removes it from Home and the training
+        log.
+      </p>
+
+      {runs.length === 0 ? (
+        <p className="font-mono text-xs text-muted-foreground text-center py-6">
+          No runs logged yet.
+        </p>
+      ) : (
+        <div className="space-y-2 mb-4">
+          {runs.map((run) => {
+            const isExpanded = expandedRunId === run.id
+            const total = getRunTotalMinutes(run.plan)
+
+            return (
+              <div
+                key={run.id}
+                className={cn(
+                  'border rounded-lg transition-colors',
+                  isExpanded ? 'border-neon-yellow/40 bg-neon-yellow/5' : 'border-border bg-card/30',
+                )}
+              >
+                <button
+                  onClick={() => onToggleExpand(run.id)}
+                  data-haptic="selection"
+                  className="w-full flex items-center justify-between gap-3 p-3 min-h-[52px] text-left"
+                >
+                  <div className="flex items-start gap-2 min-w-0">
+                    <Footprints className="w-4 h-4 text-neon-yellow shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="font-sans text-sm font-bold text-foreground">
+                        {format(parseISO(run.date + 'T12:00:00'), 'EEE, MMM d yyyy')}
+                      </div>
+                      <div className="font-mono text-xs text-muted-foreground mt-0.5 truncate">
+                        {formatPlanSummary(run.plan)} · {total} min ·{' '}
+                        {format(new Date(run.completedAt), 'h:mm a')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded bg-neon-yellow/10 text-neon-yellow">
+                      Run
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="px-3 pb-3 space-y-3 border-t border-border/50 pt-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-2 text-center">
+                        <div className="font-sans text-sm font-bold text-foreground">
+                          {run.plan.warmupMinutes}m
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground uppercase">
+                          Warmup
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-neon-yellow/30 bg-neon-yellow/5 px-2 py-2 text-center">
+                        <div className="font-sans text-sm font-bold text-neon-yellow">
+                          {run.plan.runMinutes}m
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground uppercase">
+                          Run
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-background/40 px-2 py-2 text-center">
+                        <div className="font-sans text-sm font-bold text-foreground">
+                          {run.plan.cooldownMinutes}m
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground uppercase">
+                          Cooldown
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onDelete(run.id)}
+                      data-haptic="warning"
+                      className="w-full min-h-[40px] rounded-lg border border-neon-red/30 font-mono text-xs tracking-wider uppercase text-neon-red hover:bg-neon-red/10 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove this run
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {runs.length > 0 && (
+        <div className="pt-3 border-t border-border/50 space-y-2">
+          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+            Bulk actions
+          </p>
+
+          {confirmClear === '30d' ? (
+            <ConfirmRow
+              label="Remove runs older than 30 days?"
+              onConfirm={() => onRemoveOlderThan(30)}
+              onCancel={() => onConfirmClear(null)}
+            />
+          ) : confirmClear === 'all' ? (
+            <ConfirmRow
+              label="Delete all run history?"
+              onConfirm={onClearAll}
+              onCancel={() => onConfirmClear(null)}
+            />
+          ) : (
+            <>
+              <button
+                onClick={() => onConfirmClear('30d')}
+                data-haptic="warning"
+                className="w-full min-h-[40px] rounded-lg border border-border font-mono text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+              >
+                Remove runs older than 30 days
+              </button>
+              <button
+                onClick={() => onConfirmClear('all')}
+                data-haptic="warning"
+                className="w-full min-h-[40px] rounded-lg border border-neon-red/30 font-mono text-xs text-neon-red hover:bg-neon-red/10 transition-colors"
+              >
+                Clear all run history
               </button>
             </>
           )}

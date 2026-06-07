@@ -1,18 +1,21 @@
 import { format, parseISO } from 'date-fns'
 import { Check, ChevronRight, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import program from '@/foundation-7-june.json'
-import type { DayLog, ExerciseLog, GymStore, WorkoutKey } from './gym-tracker'
 import {
-  WORKOUT_LABELS,
+  getWorkoutLabel,
+  isProgramWorkoutKey,
+  program,
+  REST_DAY_KEY,
+  type ProgramExercise,
+} from '@/lib/program'
+import type { DayLog, ExerciseLog, GymStore } from './gym-tracker'
+import {
   formatSetSummary,
   getDayStatus,
   getExerciseStatus,
   hasLoggedSetData,
   isExerciseAddressed,
 } from './gym-tracker'
-
-type WorkoutMap = Record<string, { name: string; exercises: { name: string }[] }>
 
 interface WorkoutSessionDetailsProps {
   date: string
@@ -110,9 +113,13 @@ export function WorkoutSessionDetails({
     )
   }
 
-  const workouts = program.workouts as WorkoutMap
-  const workout = log.workoutKey !== 'rest' ? workouts[log.workoutKey] : undefined
-  const exercises = workout?.exercises ?? []
+  const workout =
+    log.workoutKey !== REST_DAY_KEY && isProgramWorkoutKey(log.workoutKey)
+      ? program.workouts[log.workoutKey]
+      : undefined
+  const exercises: ProgramExercise[] =
+    workout?.exercises ??
+    Object.keys(log.exercises).map((name) => ({ name, sets: 0, notes: [] }))
   const completed = Object.values(log.exercises).filter((e) => e.completed).length
   const skipped = Object.values(log.exercises).filter((e) => e.skipped).length
   const logged = Object.values(log.exercises).filter(
@@ -129,7 +136,7 @@ export function WorkoutSessionDetails({
               {displayDate}
             </h3>
             <p className="font-sans text-lg font-bold text-foreground mt-1">
-              {WORKOUT_LABELS[log.workoutKey]}
+              {getWorkoutLabel(log.workoutKey)}
             </p>
             <p className="font-mono text-xs text-muted-foreground mt-0.5">
               {status === 'complete' && total > 0 && `${completed}/${total} exercises complete`}
@@ -142,7 +149,7 @@ export function WorkoutSessionDetails({
           <DayStatusBadge status={status} />
         </div>
 
-        {log.workoutKey !== 'rest' && exercises.length > 0 && (
+        {log.workoutKey !== REST_DAY_KEY && exercises.length > 0 && (
           <div className="space-y-2 mb-4">
             {exercises.map((exercise) => (
               <ExerciseDetailRow
@@ -154,7 +161,7 @@ export function WorkoutSessionDetails({
           </div>
         )}
 
-        {onOpenWorkout && log.workoutKey !== 'rest' && (
+        {onOpenWorkout && log.workoutKey !== REST_DAY_KEY && (
           <button
             type="button"
             onClick={onOpenWorkout}
@@ -166,7 +173,7 @@ export function WorkoutSessionDetails({
           </button>
         )}
 
-        {onStartWorkout && log.workoutKey === 'rest' && (
+        {onStartWorkout && log.workoutKey === REST_DAY_KEY && (
           <button
             type="button"
             onClick={onStartWorkout}
@@ -208,10 +215,11 @@ export function formatDayLogSummary(log: GymStore[string]): string {
   const completed = Object.values(log.exercises).filter((e) => e.completed).length
   const withSets = Object.values(log.exercises).filter((e) => formatSetSummary(e)).length
 
-  if (status === 'rest') return WORKOUT_LABELS.rest
-  if (status === 'complete') return `${WORKOUT_LABELS[log.workoutKey]} · ${completed}/${total} done`
+  if (status === 'rest') return getWorkoutLabel(REST_DAY_KEY)
+  const label = getWorkoutLabel(log.workoutKey)
+  if (status === 'complete') return `${label} · ${completed}/${total} done`
   if (withSets > 0) {
-    return `${WORKOUT_LABELS[log.workoutKey]} · ${completed}/${total} done · ${withSets} logged`
+    return `${label} · ${completed}/${total} done · ${withSets} logged`
   }
-  return `${WORKOUT_LABELS[log.workoutKey]} · ${completed}/${total} in progress`
+  return `${label} · ${completed}/${total} in progress`
 }

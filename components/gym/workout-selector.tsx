@@ -2,73 +2,38 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import program from '@/foundation-7-june.json'
-import type { WorkoutKey } from './gym-tracker'
+import {
+  getProgramWorkoutKeys,
+  getScheduleHint,
+  getWorkoutAccentClasses,
+  getWorkoutExerciseCount,
+  getWorkoutLabel,
+  isProgramWorkoutKey,
+  isWorkoutKey,
+  program,
+  REST_DAY_KEY,
+  type ProgramWorkoutKey,
+  type WorkoutKey,
+} from '@/lib/program'
 
 interface WorkoutSelectorProps {
   date: string
-  existingKey?: WorkoutKey
+  existingKey?: WorkoutKey | string
   onSelect: (key: WorkoutKey) => void
   onBack: () => void
 }
 
-const WORKOUT_OPTIONS: {
-  key: WorkoutKey
-  label: string
-  shortLabel: string
-  scheduleHint: string
-  color: string
-  accentClass: string
-  borderClass: string
-}[] = [
-  {
-    key: 'upperA',
-    label: 'Upper A',
-    shortLabel: 'UPPER A',
-    scheduleHint: 'Day 1 — Pull + Push + Core',
-    color: 'text-neon-orange',
-    accentClass: 'bg-neon-orange/10 hover:bg-neon-orange/20',
-    borderClass: 'border-neon-orange/40 hover:border-neon-orange',
-  },
-  {
-    key: 'lowerA',
-    label: 'Lower A',
-    shortLabel: 'LOWER A',
-    scheduleHint: 'Day 2 — Quad + Hamstring + Abs',
-    color: 'text-neon-amber',
-    accentClass: 'bg-neon-amber/10 hover:bg-neon-amber/20',
-    borderClass: 'border-neon-amber/40 hover:border-neon-amber',
-  },
-  {
-    key: 'upperB',
-    label: 'Upper B',
-    shortLabel: 'UPPER B',
-    scheduleHint: 'Day 4 — Pull + Push + Core',
-    color: 'text-neon-orange',
-    accentClass: 'bg-neon-orange/10 hover:bg-neon-orange/20',
-    borderClass: 'border-neon-orange/40 hover:border-neon-orange',
-  },
-  {
-    key: 'lowerB',
-    label: 'Lower B',
-    shortLabel: 'LOWER B',
-    scheduleHint: 'Day 6 — Quad + Hamstring + Abs',
-    color: 'text-neon-amber',
-    accentClass: 'bg-neon-amber/10 hover:bg-neon-amber/20',
-    borderClass: 'border-neon-amber/40 hover:border-neon-amber',
-  },
-]
-
-type WorkoutMap = Record<string, { name: string; exercises: { name: string }[] }>
-
-export function WorkoutSelector({ date, existingKey, onSelect, onBack }: WorkoutSelectorProps) {
-  const [selected, setSelected] = useState<WorkoutKey | null>(existingKey ?? null)
+export function WorkoutSelector({ date, existingKey, onBack, onSelect }: WorkoutSelectorProps) {
+  const [selected, setSelected] = useState<WorkoutKey | string | null>(existingKey ?? null)
   const displayDate = format(new Date(date + 'T12:00:00'), 'EEEE, MMMM d')
-  const workouts = program.workouts as WorkoutMap
+  const workoutKeys = getProgramWorkoutKeys()
 
-  const isResume = existingKey && existingKey !== 'rest' && selected === existingKey
+  const isResume = existingKey && existingKey !== REST_DAY_KEY && selected === existingKey
 
-  const exerciseCount = selected && selected !== 'rest' ? workouts[selected]?.exercises.length : 0
+  const exerciseCount =
+    selected && selected !== REST_DAY_KEY && isProgramWorkoutKey(selected)
+      ? getWorkoutExerciseCount(selected)
+      : 0
 
   return (
     <div className="min-h-[calc(100vh-57px)] flex flex-col pb-28">
@@ -90,35 +55,35 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
 
       {/* Workout grid */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-3">
-        {WORKOUT_OPTIONS.map((opt) => {
-          const isActive = selected === opt.key
-          const exercises = workouts[opt.key]?.exercises ?? []
+        {workoutKeys.map((key: ProgramWorkoutKey) => {
+          const isActive = selected === key
+          const styles = getWorkoutAccentClasses(key)
+          const workout = program.workouts[key]
+          const exercises = workout.exercises
+
           return (
             <button
-              key={opt.key}
-              onClick={() => setSelected(opt.key)}
+              key={key}
+              onClick={() => setSelected(key)}
               data-haptic="selection"
               className={cn(
                 'relative flex flex-col items-start text-left rounded-xl border p-4 transition-all min-h-[100px]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-orange/50',
                 isActive
-                  ? cn(opt.accentClass, opt.borderClass, 'ring-1', opt.borderClass)
+                  ? cn(styles.accentClass, styles.borderClass, 'ring-1', styles.borderClass)
                   : 'bg-card/40 border-border hover:border-muted-foreground',
               )}
             >
               {isActive && (
                 <span
-                  className={cn(
-                    'absolute top-2.5 right-2.5 w-2 h-2 rounded-full',
-                    opt.key.startsWith('upper') ? 'bg-neon-orange' : 'bg-neon-amber',
-                  )}
+                  className={cn('absolute top-2.5 right-2.5 w-2 h-2 rounded-full', styles.dotClass)}
                 />
               )}
-              <span className={cn('font-sans text-sm font-bold tracking-wider', opt.color)}>
-                {opt.shortLabel}
+              <span className={cn('font-sans text-sm font-bold tracking-wider', styles.color)}>
+                {workout.name.toUpperCase()}
               </span>
               <span className="font-mono text-xs text-muted-foreground mt-1 leading-relaxed">
-                {opt.scheduleHint}
+                {getScheduleHint(key)}
               </span>
               <span className="font-mono text-xs text-muted-foreground/60 mt-2">
                 {exercises.length} exercises
@@ -131,20 +96,20 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
       {/* Rest button */}
       <div className="px-4 mb-6">
         <button
-          onClick={() => setSelected('rest')}
+          onClick={() => setSelected(REST_DAY_KEY)}
           data-haptic="selection"
           className={cn(
             'w-full flex items-center justify-center rounded-xl border py-4 transition-all',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted',
-            selected === 'rest'
+            selected === REST_DAY_KEY
               ? 'bg-muted/30 border-muted-foreground/50'
               : 'bg-card/20 border-border hover:border-muted-foreground',
           )}
         >
           <span className="font-mono text-sm text-muted-foreground tracking-wider">
-            REST DAY
+            {getWorkoutLabel(REST_DAY_KEY).toUpperCase()}
           </span>
-          {selected === 'rest' && (
+          {selected === REST_DAY_KEY && (
             <span className="ml-3 w-2 h-2 rounded-full bg-muted-foreground" />
           )}
         </button>
@@ -172,14 +137,14 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
         <div className="max-w-2xl mx-auto space-y-2">
           {selected && (
             <div className="text-center font-mono text-xs text-muted-foreground">
-              {selected === 'rest'
+              {selected === REST_DAY_KEY
                 ? 'Log rest day'
                 : `${exerciseCount} exercises · ${isResume ? 'Resume session' : 'Start fresh'}`}
             </div>
           )}
           <button
-            onClick={() => selected && onSelect(selected)}
-            disabled={!selected}
+            onClick={() => selected && isWorkoutKey(selected) && onSelect(selected)}
+            disabled={!selected || !isWorkoutKey(selected)}
             data-haptic="success"
             className={cn(
               'w-full min-h-[52px] rounded-lg font-mono text-sm font-bold tracking-widest uppercase transition-all',
@@ -188,7 +153,7 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
                 : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50',
             )}
           >
-            {selected === 'rest'
+            {selected === REST_DAY_KEY
               ? 'LOG REST DAY'
               : isResume
                 ? 'RESUME WORKOUT →'

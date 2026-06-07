@@ -2,10 +2,10 @@ import { DayPicker } from 'react-day-picker'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import program from '@/foundation-7-june.json'
+import { getWorkoutDotColorClass, program, REST_DAY_KEY } from '@/lib/program'
 import { getRunsForDate, type RunSessionLog } from '@/lib/running'
 import { RunSessionDetails } from '@/components/running/run-session-details'
-import type { GymStore, WorkoutKey } from './gym-tracker'
+import type { GymStore } from './gym-tracker'
 import { isDayComplete } from './gym-tracker'
 import { WorkoutSessionDetails } from './workout-session-details'
 
@@ -19,16 +19,8 @@ interface WorkoutCalendarProps {
   onStartToday: () => void
 }
 
-const DOT_COLOR: Record<WorkoutKey, string> = {
-  upperA: 'bg-neon-orange',
-  upperB: 'bg-neon-orange',
-  lowerA: 'bg-neon-amber',
-  lowerB: 'bg-neon-amber',
-  rest: 'bg-muted-foreground',
-}
-
-function getDotColor(key: WorkoutKey) {
-  return DOT_COLOR[key] ?? 'bg-muted-foreground'
+function getDotColor(workoutKey: string) {
+  return getWorkoutDotColorClass(workoutKey)
 }
 
 export function WorkoutCalendar({
@@ -175,7 +167,7 @@ export function WorkoutCalendar({
         date={selectedDate}
         log={store[selectedDate]}
         onOpenWorkout={
-          store[selectedDate]?.workoutKey && store[selectedDate]?.workoutKey !== 'rest'
+          store[selectedDate]?.workoutKey && store[selectedDate]?.workoutKey !== REST_DAY_KEY
             ? onOpenWorkout
             : undefined
         }

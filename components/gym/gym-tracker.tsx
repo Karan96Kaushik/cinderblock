@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns'
 import { useLocation, useNavigate } from 'react-router-dom'
-import program from '@/foundation-7-june.json'
 import { useAuth } from '@/hooks/use-auth'
+import {
+  getProgramWorkout,
+  isProgramWorkoutKey,
+  program,
+  REST_DAY_KEY,
+  type ProgramExercise,
+  type ProgramWorkoutKey,
+  type WorkoutKey,
+} from '@/lib/program'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
 import { readRunLog, type RunSessionLog } from '@/lib/running'
 import { isValidDateParam, parseGymPath, paths, type GymView } from '@/lib/routes'
@@ -10,7 +18,8 @@ import { WorkoutCalendar } from './workout-calendar'
 import { WorkoutSelector } from './workout-selector'
 import { WorkoutFlow } from './workout-flow'
 
-export type WorkoutKey = 'upperA' | 'lowerA' | 'upperB' | 'lowerB' | 'rest'
+export type { ProgramExercise, ProgramWorkoutKey, WorkoutKey } from '@/lib/program'
+export { getWorkoutLabel, program } from '@/lib/program'
 
 export type SetLog = { weight: string; reps: string }
 
@@ -21,31 +30,15 @@ export type ExerciseLog = {
 }
 
 export type DayLog = {
-  workoutKey: WorkoutKey
+  workoutKey: WorkoutKey | string
   exercises: Record<string, ExerciseLog>
 }
 
 export type GymStore = Record<string, DayLog>
 
-export type ProgramExercise = {
-  name: string
-  sets: number
-  reps?: string
-  duration?: string
-  notes: string[]
-}
-
 export function isExerciseAddressed(log: ExerciseLog | undefined): boolean {
   if (!log) return false
   return log.completed || Boolean(log.skipped)
-}
-
-export const WORKOUT_LABELS: Record<WorkoutKey, string> = {
-  upperA: 'Upper A',
-  lowerA: 'Lower A',
-  upperB: 'Upper B',
-  lowerB: 'Lower B',
-  rest: 'Rest day',
 }
 
 export type DayStatus = 'complete' | 'partial' | 'rest' | 'empty'
@@ -82,7 +75,7 @@ export function formatSetSummary(log: ExerciseLog): string | null {
 
 export function getDayStatus(log: DayLog | undefined): DayStatus {
   if (!log) return 'empty'
-  if (log.workoutKey === 'rest') return 'rest'
+  if (log.workoutKey === REST_DAY_KEY) return 'rest'
   const exercises = Object.values(log.exercises)
   if (exercises.length === 0) return 'empty'
   if (exercises.every((e) => isExerciseAddressed(e))) return 'complete'
@@ -99,7 +92,7 @@ export function getLastWorkoutEntry(
   const dates = Object.keys(store).sort((a, b) => b.localeCompare(a))
   for (const date of dates) {
     const log = store[date]
-    if (log && log.workoutKey !== 'rest') return { date, log }
+    if (log && log.workoutKey !== REST_DAY_KEY) return { date, log }
   }
   return null
 }
@@ -129,13 +122,9 @@ export function getCurrentWeekEntries(
     .map((date) => ({ date, log: store[date]! }))
 }
 
-type WorkoutMap = Record<string, { name: string; exercises: ProgramExercise[] }>
-
-function initExercises(key: WorkoutKey): Record<string, ExerciseLog> {
-  if (key === 'rest') return {}
-  const workouts = program.workouts as WorkoutMap
-  const workout = workouts[key]
-  if (!workout) return {}
+export function initExercises(key: WorkoutKey | string): Record<string, ExerciseLog> {
+  if (key === REST_DAY_KEY || !isProgramWorkoutKey(key)) return {}
+  const workout = getProgramWorkout(key)
   const result: Record<string, ExerciseLog> = {}
   workout.exercises.forEach((ex) => {
     result[ex.name] = {
@@ -158,7 +147,7 @@ function resolveViewFromStore(
 ): GymView {
   if (requestedView === 'workout') {
     const log = store[date]
-    if (log && log.workoutKey !== 'rest') return 'workout'
+    if (log && log.workoutKey !== REST_DAY_KEY && isProgramWorkoutKey(log.workoutKey)) return 'workout'
     if (log) return 'select'
     return 'select'
   }
@@ -222,7 +211,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
 
   const handleOpenWorkout = () => {
     const existing = store[selectedDate]
-    if (existing && existing.workoutKey !== 'rest') {
+    if (existing && existing.workoutKey !== REST_DAY_KEY && isProgramWorkoutKey(existing.workoutKey)) {
       goToGym(selectedDate, 'workout')
     } else {
       goToGym(selectedDate, 'select')
@@ -238,8 +227,8 @@ export function GymTracker({ onBack }: GymTrackerProps) {
   }
 
   const handleSelectWorkout = (key: WorkoutKey) => {
-    if (key === 'rest') {
-      saveStore({ ...store, [selectedDate]: { workoutKey: 'rest', exercises: {} } })
+    if (key === REST_DAY_KEY) {
+      saveStore({ ...store, [selectedDate]: { workoutKey: REST_DAY_KEY, exercises: {} } })
       goToGym(selectedDate, 'calendar')
       return
     }
@@ -270,7 +259,10 @@ export function GymTracker({ onBack }: GymTrackerProps) {
   }
 
   const dayLog = store[selectedDate]
-  const hasFlow = dayLog && dayLog.workoutKey !== 'rest'
+  const hasFlow =
+    dayLog &&
+    dayLog.workoutKey !== REST_DAY_KEY &&
+    isProgramWorkoutKey(dayLog.workoutKey)
 
   return (
     <div className="min-h-screen bg-background">
@@ -315,7 +307,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
           />
         )}
 
-        {view === 'workout' && hasFlow && (
+        {view === 'workout' && hasFlow && isProgramWorkoutKey(dayLog.workoutKey) && (
           <WorkoutFlow
             date={selectedDate}
             workoutKey={dayLog.workoutKey}

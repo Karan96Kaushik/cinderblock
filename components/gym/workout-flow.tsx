@@ -9,22 +9,20 @@ import {
   CarouselItem,
   type CarouselApi,
 } from '@/components/ui/carousel'
-import program from '@/foundation-7-june.json'
-import type { DayLog, GymStore, ProgramExercise, SetLog, WorkoutKey } from './gym-tracker'
+import { getProgramWorkout, isProgramWorkoutKey, program, type ProgramWorkoutKey } from '@/lib/program'
+import type { DayLog, GymStore, SetLog } from './gym-tracker'
 import { isExerciseAddressed } from './gym-tracker'
 import { ExerciseStep } from './exercise-step'
 
 interface WorkoutFlowProps {
   date: string
-  workoutKey: WorkoutKey
+  workoutKey: ProgramWorkoutKey
   dayLog: DayLog
   store: GymStore
   onUpdateStore: (store: GymStore) => void
   onBack: () => void
   onFinish: () => void
 }
-
-type WorkoutMap = Record<string, { name: string; exercises: ProgramExercise[] }>
 
 export function WorkoutFlow({
   date,
@@ -35,8 +33,7 @@ export function WorkoutFlow({
   onBack,
   onFinish,
 }: WorkoutFlowProps) {
-  const workouts = program.workouts as WorkoutMap
-  const workout = workouts[workoutKey]
+  const workout = isProgramWorkoutKey(workoutKey) ? getProgramWorkout(workoutKey) : undefined
   const exercises = workout?.exercises ?? []
 
   const [currentStep, setCurrentStep] = useState<number>(() => {
