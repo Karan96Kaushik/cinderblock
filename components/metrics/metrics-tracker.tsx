@@ -28,6 +28,18 @@ const METRIC_FIELDS = [
 
 type MetricKey = (typeof METRIC_FIELDS)[number]['key']
 
+function SectionHeading({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="h-px flex-1 bg-border/80" />
+      <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-neon-orange shrink-0">
+        {label}
+      </h2>
+      <div className="h-px flex-1 bg-border/80" />
+    </div>
+  )
+}
+
 function loadStore(): MetricsStore {
   return readBodyMetrics()
 }
@@ -136,27 +148,34 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
           <button
             onClick={onBack}
             data-haptic="light"
-            className="flex items-center gap-1.5 text-muted-foreground hover:text-neon-orange transition-colors min-h-[44px] px-1"
+            className="flex items-center gap-1.5 text-text-secondary hover:text-neon-orange transition-colors min-h-[44px] px-1"
           >
             <span className="font-mono text-xs">← CINDERBLOCK</span>
           </button>
           <span className="font-sans text-xs font-bold tracking-widest text-neon-orange neon-text-orange">
             BODY METRICS
           </span>
-          <span className="font-mono text-xs text-muted-foreground w-[100px] text-right">
+          <span className="font-mono text-xs text-text-secondary w-[100px] text-right">
             {format(new Date(), 'MMM d, yyyy')}
           </span>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pb-28">
+        <div className="pt-6 pb-2">
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold text-foreground tracking-wide mb-1">
+            Body measurements
+          </h1>
+          <p className="font-mono text-sm text-text-secondary leading-relaxed">
+            Log weight and measurements weekly to track progress over time.
+          </p>
+        </div>
+
         {/* Latest snapshot */}
         {latestEntry && (
-          <section className="pt-6 pb-4">
-            <h2 className="font-mono text-xs text-muted-foreground uppercase tracking-wider mb-3">
-              Latest readings
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <section className="py-4">
+            <SectionHeading label="Latest readings" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {METRIC_FIELDS.map((field) => {
                 const value = latestEntry[field.key]
                 if (!value) return null
@@ -169,38 +188,40 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
                 return (
                   <div
                     key={field.key}
-                    className="bg-card/50 border border-border rounded-lg p-3"
+                    className="bg-card border border-border/80 rounded-xl p-4 shadow-sm"
                   >
-                    <div className="font-mono text-xs text-muted-foreground">{field.label}</div>
-                    <div className="font-sans text-lg font-bold text-foreground mt-0.5">
+                    <div className="font-mono text-xs uppercase tracking-wider text-text-secondary">
+                      {field.label}
+                    </div>
+                    <div className="font-sans text-2xl font-bold text-foreground mt-1 tabular-nums">
                       {value}
-                      <span className="text-xs font-normal text-muted-foreground ml-1">
+                      <span className="text-sm font-medium text-text-secondary ml-1.5">
                         {field.unit}
                       </span>
                     </div>
                     {delta && deltaNum !== null && deltaNum !== 0 && (
                       <div
                         className={cn(
-                          'font-mono text-xs mt-1 flex items-center gap-0.5',
+                          'font-mono text-xs mt-2 flex items-center gap-1 font-medium',
                           field.key === 'waist' || field.key === 'bodyFat'
                             ? deltaNum < 0
                               ? 'text-neon-orange'
-                              : 'text-muted-foreground'
+                              : 'text-foreground/70'
                             : deltaNum > 0
                               ? 'text-neon-yellow'
-                              : 'text-muted-foreground',
+                              : 'text-foreground/70',
                         )}
                       >
                         {deltaNum > 0 ? (
-                          <TrendingUp className="w-3 h-3" />
+                          <TrendingUp className="w-3.5 h-3.5 shrink-0" />
                         ) : (
-                          <TrendingDown className="w-3 h-3" />
+                          <TrendingDown className="w-3.5 h-3.5 shrink-0" />
                         )}
                         {delta}
                       </div>
                     )}
-                    <div className="font-mono text-[10px] text-muted-foreground/60 mt-1">
-                      {format(parseISO(latestEntry.date + 'T12:00:00'), 'MMM d')}
+                    <div className="font-mono text-xs text-text-secondary mt-2">
+                      {format(parseISO(latestEntry.date + 'T12:00:00'), 'MMM d, yyyy')}
                     </div>
                   </div>
                 )
@@ -211,10 +232,15 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
 
         {/* Log form */}
         <section className="py-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-              Log entry
-            </h2>
+          <SectionHeading label="Log entry" />
+          <div className="bg-card border border-border/80 rounded-xl p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="font-sans text-base font-bold text-foreground">{displayDate}</p>
+              <p className="font-mono text-xs text-text-secondary mt-0.5">
+                Tap a history entry below to edit a past date
+              </p>
+            </div>
             <input
               type="date"
               value={selectedDate}
@@ -224,38 +250,42 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
                 Haptic.selection()
               }}
               data-haptic="selection"
-              className="font-mono text-xs bg-card/50 border border-border rounded px-2 py-1.5 text-foreground min-h-[36px]"
+              className="font-mono text-sm bg-background border border-border rounded-lg px-3 py-2 text-foreground min-h-[44px] shrink-0 focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30"
             />
           </div>
-          <p className="font-mono text-xs text-muted-foreground mb-4">{displayDate}</p>
 
-          <div className="space-y-3 mb-4">
+          <div className="space-y-4 mb-5">
             {METRIC_FIELDS.map((field) => {
               const delta = previousEntry
                 ? formatDelta(form[field.key], previousEntry[field.key], field.unit)
                 : null
 
               return (
-                <div key={field.key} className="bg-card/50 border border-border rounded-lg p-3">
+                <div key={field.key}>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-                      {field.label} ({field.unit})
+                    <label
+                      htmlFor={`metric-${field.key}`}
+                      className="font-mono text-sm font-medium text-foreground"
+                    >
+                      {field.label}
+                      <span className="text-text-secondary font-normal ml-1.5">({field.unit})</span>
                     </label>
                     {delta && form[field.key]?.trim() && (
-                      <span className="font-mono text-[10px] text-muted-foreground">
-                        vs last: {delta}
+                      <span className="font-mono text-xs text-text-secondary">
+                        vs last: <span className="text-foreground">{delta}</span>
                       </span>
                     )}
                   </div>
                   <input
+                    id={`metric-${field.key}`}
                     type="text"
                     inputMode={field.inputMode}
                     value={form[field.key] ?? ''}
                     onChange={(e) => handleFieldChange(field.key, e.target.value)}
                     placeholder={`Enter ${field.label.toLowerCase()}`}
                     className={cn(
-                      'w-full h-11 bg-input/60 border border-border rounded-md px-3',
-                      'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
+                      'w-full h-12 bg-background border border-border rounded-lg px-3',
+                      'font-mono text-lg text-foreground placeholder:text-muted-foreground',
                       'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
                     )}
                   />
@@ -264,22 +294,27 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
             })}
           </div>
 
-          <div className="mb-4">
-            <label className="font-mono text-xs text-muted-foreground uppercase tracking-wider block mb-2">
+          <div>
+            <label
+              htmlFor="metric-notes"
+              className="font-mono text-sm font-medium text-foreground block mb-2"
+            >
               Notes
             </label>
             <textarea
+              id="metric-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Sleep, energy, diet notes..."
               rows={3}
               className={cn(
-                'w-full bg-input/60 border border-border rounded-md px-3 py-2',
-                'font-mono text-sm text-foreground placeholder:text-muted-foreground/40',
+                'w-full bg-background border border-border rounded-lg px-3 py-2.5',
+                'font-mono text-sm text-foreground placeholder:text-muted-foreground leading-relaxed',
                 'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
                 'resize-none',
               )}
             />
+          </div>
           </div>
         </section>
 
@@ -288,22 +323,26 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
           <button
             onClick={() => setHistoryOpen((o) => !o)}
             data-haptic="light"
-            className="flex items-center justify-between w-full min-h-[44px] mb-3"
+            className="w-full min-h-[44px] mb-4 group"
           >
-            <h2 className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-              History ({store.length})
-            </h2>
-            {historyOpen ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            )}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border/80 group-hover:bg-neon-orange/30 transition-colors" />
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-neon-orange shrink-0 flex items-center gap-2">
+                History ({store.length})
+                {historyOpen ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </span>
+              <div className="h-px flex-1 bg-border/80 group-hover:bg-neon-orange/30 transition-colors" />
+            </div>
           </button>
 
           {historyOpen && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {store.length === 0 ? (
-                <p className="font-mono text-xs text-muted-foreground text-center py-8">
+                <p className="font-mono text-sm text-text-secondary text-center py-10 bg-card/40 border border-border/60 rounded-xl">
                   No entries yet. Log your first measurements above.
                 </p>
               ) : (
@@ -311,29 +350,31 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
                   <div
                     key={entry.date}
                     className={cn(
-                      'bg-card/40 border rounded-lg p-3 transition-colors',
+                      'bg-card border rounded-xl p-4 transition-colors shadow-sm',
                       entry.date === selectedDate
-                        ? 'border-neon-orange/40'
-                        : 'border-border',
+                        ? 'border-neon-orange/50 ring-1 ring-neon-orange/20'
+                        : 'border-border/80',
                     )}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-start justify-between gap-2 mb-3">
                       <button
                         onClick={() => setSelectedDate(entry.date)}
                         data-haptic="selection"
                         className="text-left min-h-[36px]"
                       >
-                        <div className="font-sans text-sm font-bold text-foreground">
+                        <div className="font-sans text-base font-bold text-foreground">
                           {format(parseISO(entry.date + 'T12:00:00'), 'MMM d, yyyy')}
                         </div>
                         {entry.date === today && (
-                          <span className="font-mono text-[10px] text-neon-orange">TODAY</span>
+                          <span className="font-mono text-xs font-bold text-neon-orange tracking-wider">
+                            TODAY
+                          </span>
                         )}
                       </button>
                       <button
                         onClick={() => handleDelete(entry.date)}
                         data-haptic="warning"
-                        className="p-2 text-muted-foreground hover:text-neon-red transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                        className="p-2 text-text-secondary hover:text-neon-red transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg hover:bg-neon-red/10"
                         aria-label="Delete entry"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -346,15 +387,17 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
                         return (
                           <span
                             key={field.key}
-                            className="font-mono text-xs bg-background/50 border border-border/60 rounded px-2 py-1 text-muted-foreground"
+                            className="font-mono text-sm bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground"
                           >
-                            {field.label}: {value} {field.unit}
+                            <span className="text-text-secondary">{field.label}:</span>{' '}
+                            <span className="font-bold">{value}</span>{' '}
+                            <span className="text-text-secondary">{field.unit}</span>
                           </span>
                         )
                       })}
                     </div>
                     {entry.notes && (
-                      <p className="font-mono text-xs text-muted-foreground/80 mt-2 leading-relaxed">
+                      <p className="font-mono text-sm text-text-secondary mt-3 leading-relaxed border-t border-border/60 pt-3">
                         {entry.notes}
                       </p>
                     )}
@@ -367,21 +410,21 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
 
         {/* Program reference */}
         <section className="py-4 mb-4">
-          <div className="bg-card/20 border border-border/40 rounded-lg p-4">
-            <h3 className="font-mono text-xs text-neon-orange uppercase tracking-wider mb-2">
+          <div className="bg-card border border-border/80 rounded-xl p-5">
+            <h3 className="font-mono text-sm font-bold text-neon-orange uppercase tracking-wider mb-3">
               Track weekly
             </h3>
-            <ul className="space-y-1.5">
-              <li className="font-mono text-xs text-muted-foreground flex gap-2">
-                <span className="text-neon-orange/40 shrink-0">›</span>
+            <ul className="space-y-2.5">
+              <li className="font-mono text-sm text-foreground/90 flex gap-2.5 leading-relaxed">
+                <span className="text-neon-orange shrink-0 font-bold">›</span>
                 <span>Weigh yourself at the same time each week</span>
               </li>
-              <li className="font-mono text-xs text-muted-foreground flex gap-2">
-                <span className="text-neon-orange/40 shrink-0">›</span>
+              <li className="font-mono text-sm text-foreground/90 flex gap-2.5 leading-relaxed">
+                <span className="text-neon-orange shrink-0 font-bold">›</span>
                 <span>Measure waist at navel level, relaxed</span>
               </li>
-              <li className="font-mono text-xs text-muted-foreground flex gap-2">
-                <span className="text-neon-orange/40 shrink-0">›</span>
+              <li className="font-mono text-sm text-foreground/90 flex gap-2.5 leading-relaxed">
+                <span className="text-neon-orange shrink-0 font-bold">›</span>
                 <span>Stable or slightly increasing weight supports muscle gain</span>
               </li>
             </ul>

@@ -277,7 +277,7 @@
   text-shadow:
     0 0 4px  var(--neon-orange),
     0 0 10px var(--neon-orange),
-    0 0 22px var(--neon-orange),
+    /* 0 0 22px var(--neon-orange), */
     0 0 44px var(--neon-red);
 }
 
