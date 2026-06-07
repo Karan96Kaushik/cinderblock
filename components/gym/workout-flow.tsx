@@ -1,8 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from '@/components/ui/carousel'
 import program from '@/foundation-7-june.json'
 import type { DayLog, GymStore, ProgramExercise, SetLog, WorkoutKey } from './gym-tracker'
 import { isExerciseAddressed } from './gym-tracker'
@@ -42,8 +48,46 @@ export function WorkoutFlow({
 
   const progressStripRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
   usePreventPullToRefresh(scrollRef)
+
+  useEffect(() => {
+    if (!carouselApi) return
+
+    const onSelect = () => {
+      setCurrentStep(carouselApi.selectedScrollSnap())
+    }
+
+    carouselApi.on('select', onSelect)
+    onSelect()
+
+    return () => {
+      carouselApi.off('select', onSelect)
+    }
+  }, [carouselApi])
+
+  useEffect(() => {
+    if (!carouselApi) return
+    if (carouselApi.selectedScrollSnap() !== currentStep) {
+      carouselApi.scrollTo(currentStep)
+    }
+  }, [carouselApi, currentStep])
+
+  const goToStep = useCallback(
+    (index: number) => {
+      carouselApi?.scrollTo(index)
+    },
+    [carouselApi],
+  )
+
+  const goPrev = useCallback(() => {
+    carouselApi?.scrollPrev()
+  }, [carouselApi])
+
+  const goNext = useCallback(() => {
+    carouselApi?.scrollNext()
+  }, [carouselApi])
 
   // Scroll the active progress dot into view when step changes
   useEffect(() => {
@@ -100,31 +144,28 @@ export function WorkoutFlow({
     setCurrentStep(nextPending !== -1 ? nextPending : anyPending !== -1 ? anyPending : fromStep)
   }
 
-  const handleMarkDone = () => {
-    const exercise = exercises[currentStep]
+  const handleMarkDoneAt = (stepIndex: number) => {
+    const exercise = exercises[stepIndex]
     if (!exercise) return
     updateExerciseLog(exercise.name, { completed: true, skipped: false })
-    advanceToNextPending(currentStep)
+    advanceToNextPending(stepIndex)
   }
 
-  const handleSkip = () => {
-    const exercise = exercises[currentStep]
+  const handleSkipAt = (stepIndex: number) => {
+    const exercise = exercises[stepIndex]
     if (!exercise) return
     updateExerciseLog(exercise.name, { completed: false, skipped: true })
-    advanceToNextPending(currentStep)
+    advanceToNextPending(stepIndex)
   }
 
-  const handleMarkUndone = () => {
-    const exercise = exercises[currentStep]
+  const handleMarkUndoneAt = (stepIndex: number) => {
+    const exercise = exercises[stepIndex]
     if (!exercise) return
     updateExerciseLog(exercise.name, { completed: false, skipped: false })
   }
 
-  const handleUpdateSets = (sets: SetLog[]) => {
-    const exercise = exercises[currentStep]
-    if (!exercise) return
-    updateExerciseLog(exercise.name, { sets })
-  }
+  const handleMarkDone = () => handleMarkDoneAt(currentStep)
+  const handleSkip = () => handleSkipAt(currentStep)
 
   const currentExercise = exercises[currentStep]
   const currentLog = currentExercise ? dayLog.exercises[currentExercise.name] : undefined
@@ -168,7 +209,7 @@ export function WorkoutFlow({
             return (
               <button
                 key={ex.name}
-                onClick={() => setCurrentStep(i)}
+                onClick={() => goToStep(i)}
                 data-haptic="selection"
                 title={ex.name}
                 className={cn(
@@ -198,20 +239,39 @@ export function WorkoutFlow({
         </div>
       </div>
 
-      {/* Exercise step — scrollable main content */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-none px-4 pb-40">
-        {currentExercise && (
-          <div className="py-2">
-            <ExerciseStep
-              exercise={currentExercise}
-              log={currentLog}
-              onUpdateSets={handleUpdateSets}
-              onMarkDone={handleMarkDone}
-              onSkip={handleSkip}
-              onMarkUndone={handleMarkUndone}
-            />
-          </div>
-        )}
+      {/* Exercise step — swipeable carousel + scrollable extras */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-none pb-40">
+        <Carousel
+          key={`${date}-${workoutKey}`}
+          setApi={setCarouselApi}
+          opts={{ startIndex: currentStep, duration: 30, dragFree: false }}
+          className="w-full"
+        >
+          <CarouselContent className="-ml-0">
+            {exercises.map((exercise, i) => {
+              const log = dayLog.exercises[exercise.name]
+              const isActive = i === currentStep
+
+              return (
+                <CarouselItem key={exercise.name} className="pl-0 basis-full">
+                  <div className="px-4 py-2 touch-pan-y">
+                    <ExerciseStep
+                      exercise={exercise}
+                      log={log}
+                      isActive={isActive}
+                      onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
+                      onMarkDone={() => handleMarkDoneAt(i)}
+                      onSkip={() => handleSkipAt(i)}
+                      onMarkUndone={() => handleMarkUndoneAt(i)}
+                    />
+                  </div>
+                </CarouselItem>
+              )
+            })}
+          </CarouselContent>
+        </Carousel>
+
+        <div className="px-4">
 
         {/* All done celebration */}
         {allAddressed && (
@@ -227,7 +287,7 @@ export function WorkoutFlow({
         )}
 
         {/* Global reminder notes */}
-        <div className="mt-8 bg-card/20 border border-border/40 rounded-lg p-4">
+        <div className="mt-8 mb-4 bg-card/20 border border-border/40 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <Settings2 className="w-3 h-3 text-neon-orange/60" />
             <span className="font-mono text-xs text-neon-orange/70 uppercase tracking-wider">
@@ -243,13 +303,14 @@ export function WorkoutFlow({
             ))}
           </ul>
         </div>
+        </div>
       </div>
 
       {/* Sticky bottom bar: prev | (finish if all done, else mark done) | next */}
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 border-t border-border backdrop-blur-sm">
         <div className="max-w-2xl mx-auto p-4 flex items-center gap-3">
           <button
-            onClick={() => setCurrentStep((s) => Math.max(0, s - 1))}
+            onClick={goPrev}
             data-haptic="selection"
             disabled={currentStep === 0}
             className={cn(
@@ -273,11 +334,12 @@ export function WorkoutFlow({
             </button>
           ) : isExerciseAddressed(currentLog) ? (
             <button
-              onClick={() =>
-                setCurrentStep(
-                  exercises.findIndex((ex) => !isExerciseAddressed(dayLog.exercises[ex.name])),
+              onClick={() => {
+                const nextPending = exercises.findIndex(
+                  (ex) => !isExerciseAddressed(dayLog.exercises[ex.name]),
                 )
-              }
+                if (nextPending !== -1) goToStep(nextPending)
+              }}
               data-haptic="selection"
               className="flex-1 min-h-[48px] rounded-lg border border-neon-orange/30 font-mono text-sm text-neon-orange tracking-widest uppercase hover:bg-neon-orange/10 transition-colors"
             >
@@ -303,7 +365,7 @@ export function WorkoutFlow({
           )}
 
           <button
-            onClick={() => setCurrentStep((s) => Math.min(exercises.length - 1, s + 1))}
+            onClick={goNext}
             data-haptic="selection"
             disabled={currentStep === exercises.length - 1}
             className={cn(

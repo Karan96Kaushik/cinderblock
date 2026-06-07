@@ -7,6 +7,7 @@ import { ExerciseStopwatch } from './exercise-stopwatch'
 interface ExerciseStepProps {
   exercise: ProgramExercise
   log: ExerciseLog | undefined
+  isActive?: boolean
   onUpdateSets: (sets: SetLog[]) => void
   onMarkDone: () => void
   onSkip: () => void
@@ -48,6 +49,7 @@ function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
 export function ExerciseStep({
   exercise,
   log,
+  isActive = true,
   onUpdateSets,
   onMarkDone,
   onSkip,
@@ -104,7 +106,7 @@ export function ExerciseStep({
         <div className="flex items-start justify-between gap-3">
           <h2
             className={cn(
-              'font-sans text-2xl font-bold tracking-wider uppercase leading-tight',
+              'font-sans text-3xl sm:text-4xl font-bold tracking-wide uppercase leading-tight',
               isCompleted && 'text-neon-orange neon-text-orange',
               isSkipped && 'text-muted-foreground line-through decoration-muted-foreground/50',
               !isAddressed && 'text-foreground',
@@ -231,7 +233,7 @@ export function ExerciseStep({
         </div>
       )}
 
-      <ExerciseStopwatch key={exercise.name} />
+      {isActive && <ExerciseStopwatch key={exercise.name} />}
 
       {/* Notes (collapsible) */}
       {exercise.notes && exercise.notes.length > 0 && (
