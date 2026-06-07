@@ -1,3 +1,5 @@
+import { endOfWeek, parseISO, startOfWeek } from 'date-fns'
+
 export type RunningPhase = 'warmup' | 'run' | 'cooldown'
 
 export type RunningPlan = {
@@ -213,4 +215,47 @@ export function plansMatch(a: RunningPlan, b: RunningPlan): boolean {
     a.runMinutes === b.runMinutes &&
     a.cooldownMinutes === b.cooldownMinutes
   )
+}
+
+export function getRunTotalMinutes(plan: RunningPlan): number {
+  return plan.warmupMinutes + plan.runMinutes + plan.cooldownMinutes
+}
+
+export function formatRunSummary(run: RunSessionLog): string {
+  return `Run ${formatPlanSummary(run.plan)} · ${getRunTotalMinutes(run.plan)} min`
+}
+
+export function getRunsForDate(runs: RunSessionLog[], date: string): RunSessionLog[] {
+  return runs
+    .filter((run) => run.date === date)
+    .sort((a, b) => b.completedAt - a.completedAt)
+}
+
+export function getLastRun(runs: RunSessionLog[]): RunSessionLog | null {
+  return runs[0] ?? null
+}
+
+export function getCurrentWeekRuns(runs: RunSessionLog[]): RunSessionLog[] {
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
+
+  return runs
+    .filter((run) => {
+      const day = parseISO(`${run.date}T12:00:00`)
+      return day >= weekStart && day <= weekEnd
+    })
+    .sort((a, b) => b.completedAt - a.completedAt)
+}
+
+export function groupRunsByDate(runs: RunSessionLog[]): Record<string, RunSessionLog[]> {
+  const map: Record<string, RunSessionLog[]> = {}
+  for (const run of runs) {
+    if (!map[run.date]) map[run.date] = []
+    map[run.date].push(run)
+  }
+  for (const date of Object.keys(map)) {
+    map[date].sort((a, b) => b.completedAt - a.completedAt)
+  }
+  return map
 }

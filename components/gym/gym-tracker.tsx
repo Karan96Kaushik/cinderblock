@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import program from '@/foundation-7-june.json'
 import { useAuth } from '@/hooks/use-auth'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
+import { readRunLog, type RunSessionLog } from '@/lib/running'
 import { isValidDateParam, parseGymPath, paths, type GymView } from '@/lib/routes'
 import { WorkoutCalendar } from './workout-calendar'
 import { WorkoutSelector } from './workout-selector'
@@ -170,6 +171,17 @@ export function GymTracker({ onBack }: GymTrackerProps) {
   const location = useLocation()
   const today = format(new Date(), 'yyyy-MM-dd')
   const [store, setStore] = useState<GymStore>(() => readGymLog())
+  const [runs, setRuns] = useState<RunSessionLog[]>(() => readRunLog())
+
+  useEffect(() => {
+    const refreshRuns = () => setRuns(readRunLog())
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshRuns()
+    }
+    refreshRuns()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
 
   const route = parseGymPath(location.pathname)
   const selectedDate =
@@ -285,6 +297,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
         {view === 'calendar' && (
           <WorkoutCalendar
             store={store}
+            runs={runs}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
             onOpenWorkout={handleOpenWorkout}

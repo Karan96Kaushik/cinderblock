@@ -6,6 +6,14 @@ import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
 import { readGymLog } from '@/lib/sync/storage'
+import {
+  formatRunSummary,
+  getCurrentWeekRuns,
+  getLastRun,
+  readRunLog,
+  type RunSessionLog,
+} from '@/lib/running'
+import { RunSessionDetails } from '@/components/running/run-session-details'
 import type { DayLog, GymStore } from '@/components/gym/gym-tracker'
 import {
   getCurrentWeekEntries,
@@ -55,6 +63,48 @@ const WEEK_STATUS_LABELS = {
   empty: 'Empty',
 } as const
 
+function WeekRunRow({ run }: { run: RunSessionLog }) {
+  const displayDate = format(parseISO(`${run.date}T12:00:00`), 'EEE, MMM d')
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+      <span className="font-mono text-xs text-muted-foreground w-[88px] shrink-0">{displayDate}</span>
+      <span className="font-sans text-sm text-foreground flex-1 min-w-0 truncate">
+        {formatRunSummary(run)}
+      </span>
+      <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded shrink-0 bg-neon-yellow/10 text-neon-yellow">
+        Run
+      </span>
+    </div>
+  )
+}
+
+type WeekActivity =
+  | { kind: 'gym'; date: string; log: DayLog; sortKey: number }
+  | { kind: 'run'; run: RunSessionLog; sortKey: number }
+
+function getCurrentWeekActivities(store: GymStore, runs: RunSessionLog[]): WeekActivity[] {
+  const gym = getCurrentWeekEntries(store).map(({ date, log }) => ({
+    kind: 'gym' as const,
+    date,
+    log,
+    sortKey: parseISO(`${date}T12:00:00`).getTime(),
+  }))
+  const runActivities = getCurrentWeekRuns(runs).map((run) => ({
+    kind: 'run' as const,
+    run,
+    sortKey: run.completedAt,
+  }))
+
+  return [...gym, ...runActivities].sort((a, b) => {
+    const dateA = a.kind === 'gym' ? a.date : a.run.date
+    const dateB = b.kind === 'gym' ? b.date : b.run.date
+    const dateCmp = dateA.localeCompare(dateB)
+    if (dateCmp !== 0) return dateCmp
+    return a.sortKey - b.sortKey
+  })
+}
+
 function WeekWorkoutRow({ date, log }: { date: string; log: DayLog }) {
   const status = getDayStatus(log)
   const displayDate = format(parseISO(`${date}T12:00:00`), 'EEE, MMM d')
@@ -85,18 +135,30 @@ export function HomePage({
   onOpenSettings,
 }: HomePageProps) {
   const [store, setStore] = useState<GymStore>({})
-  const [stats, setStats] = useState({ sessions: 0, completed: 0 })
+  const [runs, setRuns] = useState<RunSessionLog[]>([])
+  const [stats, setStats] = useState({ sessions: 0, completed: 0, runs: 0 })
   const [latestWeight, setLatestWeight] = useState<string>()
   const [latestWaist, setLatestWaist] = useState<string>()
 
   useEffect(() => {
-    const gymLog = readGymLog()
-    setStore(gymLog)
-    setStats(getTrainingStats(gymLog))
+    const refresh = () => {
+      const gymLog = readGymLog()
+      const runLog = readRunLog()
+      setStore(gymLog)
+      setRuns(runLog)
+      setStats({ ...getTrainingStats(gymLog), runs: runLog.length })
 
-    const metrics = getLatestMetrics()
-    setLatestWeight(getLatestMetricValue(metrics, 'weight'))
-    setLatestWaist(getLatestMetricValue(metrics, 'waist'))
+      const metrics = getLatestMetrics()
+      setLatestWeight(getLatestMetricValue(metrics, 'weight'))
+      setLatestWaist(getLatestMetricValue(metrics, 'waist'))
+    }
+
+    refresh()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [])
 
   const todayLabel = format(new Date(), 'EEEE, MMMM d')
@@ -104,13 +166,20 @@ export function HomePage({
 
   const incompleteWorkout = getIncompleteWorkoutEntry(store)
   const lastWorkout = getLastWorkoutEntry(store)
-  const weekEntries = getCurrentWeekEntries(store)
+  const lastRun = getLastRun(runs)
+  const weekActivities = getCurrentWeekActivities(store, runs)
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 })
   const weekLabel = `${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d')}`
-  const weekCompleted = weekEntries.filter((e) => getDayStatus(e.log) === 'complete').length
-  const weekRest = weekEntries.filter((e) => getDayStatus(e.log) === 'rest').length
-  const hasStats = stats.sessions > 0 || stats.completed > 0 || latestWeight || latestWaist
+  const weekGymCompleted = weekActivities.filter(
+    (a) => a.kind === 'gym' && getDayStatus(a.log) === 'complete',
+  ).length
+  const weekRest = weekActivities.filter(
+    (a) => a.kind === 'gym' && getDayStatus(a.log) === 'rest',
+  ).length
+  const weekRuns = weekActivities.filter((a) => a.kind === 'run').length
+  const hasStats =
+    stats.sessions > 0 || stats.completed > 0 || stats.runs > 0 || latestWeight || latestWaist
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -187,20 +256,26 @@ export function HomePage({
                     <Calendar className="w-4 h-4" />
                     <span className="font-sans text-sm font-bold text-foreground">{weekLabel}</span>
                   </div>
-                  {weekEntries.length === 0 && (
+                  {weekActivities.length === 0 && (
                     <p className="font-mono text-xs text-muted-foreground">
-                      No workouts logged yet this week.
+                      No training logged yet this week.
                     </p>
                   )}
                 </div>
-                {weekEntries.length > 0 && (
+                {weekActivities.length > 0 && (
                   <div className="text-right shrink-0">
                     <div className="font-sans text-lg font-bold text-neon-orange">
-                      {weekCompleted}
+                      {weekGymCompleted}
                       {weekRest > 0 && (
                         <span className="text-sm font-normal text-muted-foreground">
                           {' '}
                           + {weekRest} rest
+                        </span>
+                      )}
+                      {weekRuns > 0 && (
+                        <span className="text-sm font-normal text-neon-yellow">
+                          {' '}
+                          · {weekRuns} run{weekRuns !== 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
@@ -211,11 +286,15 @@ export function HomePage({
                 )}
               </div>
 
-              {weekEntries.length > 0 && (
+              {weekActivities.length > 0 && (
                 <div className="mb-4">
-                  {weekEntries.map(({ date, log }) => (
-                    <WeekWorkoutRow key={date} date={date} log={log} />
-                  ))}
+                  {weekActivities.map((activity) =>
+                    activity.kind === 'gym' ? (
+                      <WeekWorkoutRow key={`gym-${activity.date}`} date={activity.date} log={activity.log} />
+                    ) : (
+                      <WeekRunRow key={activity.run.id} run={activity.run} />
+                    ),
+                  )}
                 </div>
               )}
 
@@ -230,7 +309,7 @@ export function HomePage({
             </div>
           </section>
 
-          {/* 3. Last workout */}
+          {/* 3. Last workout / run */}
           {lastWorkout && (
             <section className="mb-10">
               <SectionDivider label="LAST WORKOUT" />
@@ -240,6 +319,15 @@ export function HomePage({
                   log={lastWorkout.log}
                   onOpenWorkout={() => onContinueWorkout(lastWorkout.date)}
                 />
+              </div>
+            </section>
+          )}
+
+          {lastRun && (
+            <section className="mb-10">
+              <SectionDivider label="LAST RUN" />
+              <div className="-mx-4 home-page-panel px-4">
+                <RunSessionDetails run={lastRun} showDate />
               </div>
             </section>
           )}
@@ -259,6 +347,12 @@ export function HomePage({
                   <div className="home-surface border border-border rounded-lg p-4 text-center">
                     <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.completed}</div>
                     <div className="font-mono text-xs text-muted-foreground mt-1">Completed</div>
+                  </div>
+                )}
+                {stats.runs > 0 && (
+                  <div className="home-surface border border-border rounded-lg p-4 text-center">
+                    <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.runs}</div>
+                    <div className="font-mono text-xs text-muted-foreground mt-1">Runs</div>
                   </div>
                 )}
                 {latestWeight && (

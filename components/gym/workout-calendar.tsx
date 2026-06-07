@@ -3,12 +3,15 @@ import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import program from '@/foundation-7-june.json'
+import { getRunsForDate, type RunSessionLog } from '@/lib/running'
+import { RunSessionDetails } from '@/components/running/run-session-details'
 import type { GymStore, WorkoutKey } from './gym-tracker'
 import { isDayComplete } from './gym-tracker'
 import { WorkoutSessionDetails } from './workout-session-details'
 
 interface WorkoutCalendarProps {
   store: GymStore
+  runs: RunSessionLog[]
   selectedDate: string
   onSelectDate: (date: string) => void
   onOpenWorkout: () => void
@@ -30,6 +33,7 @@ function getDotColor(key: WorkoutKey) {
 
 export function WorkoutCalendar({
   store,
+  runs,
   selectedDate,
   onSelectDate,
   onOpenWorkout,
@@ -41,6 +45,9 @@ export function WorkoutCalendar({
 
   const totalLogged = Object.keys(store).length
   const totalCompleted = Object.keys(store).filter((d) => isDayComplete(store[d])).length
+  const totalRuns = runs.length
+  const selectedRuns = getRunsForDate(runs, selectedDate)
+  const hasStats = totalLogged > 0 || totalRuns > 0
 
   return (
     <div className="pb-28">
@@ -53,17 +60,23 @@ export function WorkoutCalendar({
       </div>
 
       {/* Stats row */}
-      {totalLogged > 0 && (
+      {hasStats && (
         <div className="px-4 mb-4">
           <div className="flex gap-4">
             <div className="bg-card/50 border border-border rounded-lg px-4 py-2 flex-1 text-center">
               <div className="font-sans text-lg font-bold text-neon-orange">{totalLogged}</div>
-              <div className="font-mono text-xs text-muted-foreground">SESSIONS</div>
+              <div className="font-mono text-xs text-muted-foreground">GYM</div>
             </div>
             <div className="bg-card/50 border border-border rounded-lg px-4 py-2 flex-1 text-center">
               <div className="font-sans text-lg font-bold text-neon-yellow">{totalCompleted}</div>
               <div className="font-mono text-xs text-muted-foreground">COMPLETED</div>
             </div>
+            {totalRuns > 0 && (
+              <div className="bg-card/50 border border-border rounded-lg px-4 py-2 flex-1 text-center">
+                <div className="font-sans text-lg font-bold text-neon-yellow">{totalRuns}</div>
+                <div className="font-mono text-xs text-muted-foreground">RUNS</div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -110,6 +123,7 @@ export function WorkoutCalendar({
                 const dateStr = format(day.date, 'yyyy-MM-dd')
                 const log = store[dateStr]
                 const complete = isDayComplete(log)
+                const dayRuns = getRunsForDate(runs, dateStr)
                 const isToday = dateStr === today
 
                 return (
@@ -131,14 +145,21 @@ export function WorkoutCalendar({
                     )}
                   >
                     <span className="leading-none text-xs">{day.date.getDate()}</span>
-                    {log ? (
-                      <span
-                        className={cn(
-                          'w-1.5 h-1.5 rounded-full',
-                          getDotColor(log.workoutKey),
-                          complete && 'ring-1 ring-offset-1 ring-offset-background ring-current',
-                        )}
-                      />
+                    {log || dayRuns.length > 0 ? (
+                      <span className="flex items-center gap-0.5 h-1.5">
+                        {log ? (
+                          <span
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              getDotColor(log.workoutKey),
+                              complete && 'ring-1 ring-offset-1 ring-offset-background ring-current',
+                            )}
+                          />
+                        ) : null}
+                        {dayRuns.length > 0 ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-neon-yellow" />
+                        ) : null}
+                      </span>
                     ) : (
                       <span className="w-1.5 h-1.5" />
                     )}
@@ -161,9 +182,17 @@ export function WorkoutCalendar({
         onStartWorkout={onStartWorkout}
       />
 
+      {selectedRuns.length > 0 && (
+        <div className="px-4 mb-4 space-y-3">
+          {selectedRuns.map((run) => (
+            <RunSessionDetails key={run.id} run={run} />
+          ))}
+        </div>
+      )}
+
       {/* Legend */}
       <div className="px-4 mb-6">
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-neon-orange" />
             <span className="font-mono text-xs text-muted-foreground">Upper</span>
@@ -175,6 +204,10 @@ export function WorkoutCalendar({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-muted-foreground" />
             <span className="font-mono text-xs text-muted-foreground">Rest</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-neon-yellow" />
+            <span className="font-mono text-xs text-muted-foreground">Run</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="relative w-2 h-2 rounded-full bg-neon-orange ring-1 ring-offset-1 ring-offset-background ring-neon-orange" />
