@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { AuthProvider } from '@/hooks/use-auth'
 import { SettingsProvider } from '@/hooks/use-settings'
 import { HapticInit } from '@/components/haptic-init'
@@ -7,56 +7,31 @@ import { GymTracker } from '@/components/gym/gym-tracker'
 import { MetricsTracker } from '@/components/metrics/metrics-tracker'
 import { RunningTracker } from '@/components/running/running-tracker'
 import { SettingsPage } from '@/components/settings/settings-page'
-
-type AppView = 'home' | 'gym' | 'running' | 'metrics' | 'settings'
-
-type GymEntry = {
-  date: string
-  view: 'flow'
-}
+import { paths } from '@/lib/routes'
 
 function AppRoutes() {
-  const [currentView, setCurrentView] = useState<AppView>('home')
-  const [gymEntry, setGymEntry] = useState<GymEntry>()
-
-  const openGym = (entry?: GymEntry) => {
-    setGymEntry(entry)
-    setCurrentView('gym')
-  }
-
-  if (currentView === 'gym') {
-    return (
-      <GymTracker
-        onBack={() => {
-          setGymEntry(undefined)
-          setCurrentView('home')
-        }}
-        initialDate={gymEntry?.date}
-        initialView={gymEntry?.view}
-      />
-    )
-  }
-
-  if (currentView === 'running') {
-    return <RunningTracker onBack={() => setCurrentView('home')} />
-  }
-
-  if (currentView === 'metrics') {
-    return <MetricsTracker onBack={() => setCurrentView('home')} />
-  }
-
-  if (currentView === 'settings') {
-    return <SettingsPage onBack={() => setCurrentView('home')} />
-  }
+  const navigate = useNavigate()
 
   return (
-    <HomePage
-      onStartTraining={() => openGym()}
-      onContinueWorkout={(date) => openGym({ date, view: 'flow' })}
-      onStartRunning={() => setCurrentView('running')}
-      onOpenMetrics={() => setCurrentView('metrics')}
-      onOpenSettings={() => setCurrentView('settings')}
-    />
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <HomePage
+            onStartTraining={() => navigate(paths.gym())}
+            onContinueWorkout={(date) => navigate(paths.gym({ date, view: 'workout' }))}
+            onStartRunning={() => navigate(paths.running())}
+            onOpenMetrics={() => navigate(paths.metrics())}
+            onOpenSettings={() => navigate(paths.settings())}
+          />
+        }
+      />
+      <Route path="/gym/*" element={<GymTracker onBack={() => navigate(paths.home())} />} />
+      <Route path="/running/*" element={<RunningTracker onBack={() => navigate(paths.home())} />} />
+      <Route path="/metrics" element={<MetricsTracker onBack={() => navigate(paths.home())} />} />
+      <Route path="/settings" element={<SettingsPage onBack={() => navigate(paths.home())} />} />
+      <Route path="*" element={<Navigate to={paths.home()} replace />} />
+    </Routes>
   )
 }
 

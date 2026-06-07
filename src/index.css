@@ -61,7 +61,7 @@
 
   /* CyberGrid overlay — overridden by theme presets */
   --cyber-vignette: radial-gradient(ellipse at center, transparent 0%, oklch(0.08 0.03 45 / 0.9) 100%);
-  --cyber-grid-opacity: 0.3;
+  --cyber-grid-opacity: 0.5;
   --cyber-scanline-opacity: 0.2;
 }
 

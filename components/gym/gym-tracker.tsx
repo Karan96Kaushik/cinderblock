@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns'
+import { useLocation, useNavigate } from 'react-router-dom'
 import program from '@/foundation-7-june.json'
 import { useAuth } from '@/hooks/use-auth'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
+import { isValidDateParam, parseGymPath, paths, type GymView } from '@/lib/routes'
 import { WorkoutCalendar } from './workout-calendar'
 import { WorkoutSelector } from './workout-selector'
 import { WorkoutFlow } from './workout-flow'
@@ -146,33 +148,46 @@ function initExercises(key: WorkoutKey): Record<string, ExerciseLog> {
 
 interface GymTrackerProps {
   onBack: () => void
-  initialDate?: string
-  initialView?: View
 }
 
-type View = 'calendar' | 'selector' | 'flow'
-
-function resolveInitialView(
-  initialView: View | undefined,
-  initialDate: string | undefined,
+function resolveViewFromStore(
+  requestedView: GymView,
+  date: string,
   store: GymStore,
-): View {
-  if (initialView === 'flow' && initialDate) {
-    const log = store[initialDate]
-    if (log && log.workoutKey !== 'rest') return 'flow'
-    if (log) return 'selector'
+): GymView {
+  if (requestedView === 'workout') {
+    const log = store[date]
+    if (log && log.workoutKey !== 'rest') return 'workout'
+    if (log) return 'select'
+    return 'select'
   }
-  return initialView ?? 'calendar'
+  return requestedView
 }
 
-export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps) {
+export function GymTracker({ onBack }: GymTrackerProps) {
   const { token } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const today = format(new Date(), 'yyyy-MM-dd')
   const [store, setStore] = useState<GymStore>(() => readGymLog())
-  const [view, setView] = useState<View>(() =>
-    resolveInitialView(initialView, initialDate, readGymLog()),
-  )
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate ?? today)
+
+  const route = parseGymPath(location.pathname)
+  const selectedDate =
+    route.date && isValidDateParam(route.date) ? route.date : today
+  const view = resolveViewFromStore(route.view, selectedDate, store)
+
+  useEffect(() => {
+    if (route.date && !isValidDateParam(route.date)) {
+      navigate(paths.gym(), { replace: true })
+      return
+    }
+
+    const resolved = resolveViewFromStore(route.view, selectedDate, store)
+    const target = paths.gym({ date: selectedDate, view: resolved })
+    if (location.pathname !== target) {
+      navigate(target, { replace: true })
+    }
+  }, [location.pathname, navigate, route.date, route.view, selectedDate, store])
 
   const saveStore = useCallback(
     (newStore: GymStore) => {
@@ -182,32 +197,38 @@ export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps
     [token],
   )
 
+  const goToGym = useCallback(
+    (date: string, nextView: GymView) => {
+      navigate(paths.gym({ date, view: nextView }))
+    },
+    [navigate],
+  )
+
   const handleSelectDate = (date: string) => {
-    setSelectedDate(date)
+    goToGym(date, 'calendar')
   }
 
   const handleOpenWorkout = () => {
     const existing = store[selectedDate]
     if (existing && existing.workoutKey !== 'rest') {
-      setView('flow')
+      goToGym(selectedDate, 'workout')
     } else {
-      setView('selector')
+      goToGym(selectedDate, 'select')
     }
   }
 
   const handleStartWorkout = () => {
-    setView('selector')
+    goToGym(selectedDate, 'select')
   }
 
   const handleStartToday = () => {
-    setSelectedDate(today)
-    setView('selector')
+    goToGym(today, 'select')
   }
 
   const handleSelectWorkout = (key: WorkoutKey) => {
     if (key === 'rest') {
       saveStore({ ...store, [selectedDate]: { workoutKey: 'rest', exercises: {} } })
-      setView('calendar')
+      goToGym(selectedDate, 'calendar')
       return
     }
     const existing = store[selectedDate]
@@ -217,7 +238,7 @@ export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps
         [selectedDate]: { workoutKey: key, exercises: initExercises(key) },
       })
     }
-    setView('flow')
+    goToGym(selectedDate, 'workout')
   }
 
   const handleUpdateStore = (newStore: GymStore) => {
@@ -225,15 +246,15 @@ export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps
   }
 
   const handleFinish = () => {
-    setView('calendar')
+    goToGym(selectedDate, 'calendar')
   }
 
   const handleBackToCalendar = () => {
-    setView('calendar')
+    goToGym(selectedDate, 'calendar')
   }
 
   const handleBackToSelector = () => {
-    setView('selector')
+    goToGym(selectedDate, 'select')
   }
 
   const dayLog = store[selectedDate]
@@ -272,7 +293,7 @@ export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps
           />
         )}
 
-        {view === 'selector' && (
+        {view === 'select' && (
           <WorkoutSelector
             date={selectedDate}
             existingKey={store[selectedDate]?.workoutKey}
@@ -281,7 +302,7 @@ export function GymTracker({ onBack, initialDate, initialView }: GymTrackerProps
           />
         )}
 
-        {view === 'flow' && hasFlow && (
+        {view === 'workout' && hasFlow && (
           <WorkoutFlow
             date={selectedDate}
             workoutKey={dayLog.workoutKey}

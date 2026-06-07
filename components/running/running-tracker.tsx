@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
 import {
   clearActiveRunSession,
   DEFAULT_RUNNING_PLAN,
@@ -14,17 +16,12 @@ import {
   restoreActiveRunSession,
   type RunningPlan,
 } from '@/lib/running'
+import { parseRunningPath, paths } from '@/lib/routes'
 import { RunningFlow } from './running-flow'
 import { RunningPlanBuilder } from './running-plan-builder'
 
 interface RunningTrackerProps {
   onBack: () => void
-}
-
-type View = 'plan' | 'flow'
-
-function getInitialView(): View {
-  return hasResumableRunSession() ? 'flow' : 'plan'
 }
 
 function getInitialPlan(): RunningPlan {
@@ -33,7 +30,10 @@ function getInitialPlan(): RunningPlan {
 }
 
 export function RunningTracker({ onBack }: RunningTrackerProps) {
-  const [view, setView] = useState<View>(getInitialView)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const view = parseRunningPath(location.pathname)
   const [plan, setPlan] = useState<RunningPlan>(getInitialPlan)
   const [recentRuns, setRecentRuns] = useState(() => readRunLog().slice(0, 3))
   const today = format(new Date(), 'MMM d, yyyy')
@@ -44,22 +44,27 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
     !restoreActiveRunSession(savedSession).finished &&
     view === 'plan'
 
+  const goToPlan = () => navigate(paths.running('plan'))
+  const goToSession = () => navigate(paths.running('session'))
+
   const handleFinish = () => {
     setRecentRuns(readRunLog().slice(0, 3))
-    setView('plan')
+    goToPlan()
   }
 
   const handleResume = () => {
     if (savedSession?.plan) setPlan(savedSession.plan)
-    setView('flow')
+    goToSession()
   }
 
   const handleDiscard = () => {
     clearActiveRunSession()
   }
 
+  usePreventPullToRefresh(scrollRef)
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col overscroll-none">
       <div className="sticky top-0 z-50 bg-background/95 border-b border-border backdrop-blur-sm">
         <div className="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
           <button
@@ -77,6 +82,7 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
         </div>
       </div>
 
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-none">
       <div className="max-w-2xl mx-auto">
         {view === 'plan' && (
           <div className="px-4 pt-6 pb-28">
@@ -129,7 +135,7 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
               type="button"
               onClick={() => {
                 if (canResume) clearActiveRunSession()
-                setView('flow')
+                goToSession()
               }}
               data-haptic="success"
               className="w-full mt-8 min-h-[52px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
@@ -162,13 +168,14 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
           </div>
         )}
 
-        {view === 'flow' && (
+        {view === 'session' && (
           <RunningFlow
             plan={plan}
-            onBack={() => setView('plan')}
+            onBack={goToPlan}
             onFinish={handleFinish}
           />
         )}
+      </div>
       </div>
     </div>
   )
