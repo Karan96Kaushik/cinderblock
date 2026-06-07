@@ -77,6 +77,32 @@ export function formatTimer(totalSeconds: number): string {
 
 export const RUN_LOG_STORAGE_KEY = 'cinderblock_run_log'
 export const ACTIVE_RUN_STORAGE_KEY = 'cinderblock_active_run'
+export const DEFAULT_RUNNING_PLAN_STORAGE_KEY = 'cinderblock_default_running_plan'
+
+function isValidRunningPlan(plan: unknown): plan is RunningPlan {
+  if (!plan || typeof plan !== 'object') return false
+  const p = plan as RunningPlan
+  return [p.warmupMinutes, p.runMinutes, p.cooldownMinutes].every(
+    (minutes) => typeof minutes === 'number' && minutes > 0 && minutes <= 180,
+  )
+}
+
+export function readDefaultRunningPlan(): RunningPlan {
+  try {
+    const raw = localStorage.getItem(DEFAULT_RUNNING_PLAN_STORAGE_KEY)
+    if (!raw) return DEFAULT_RUNNING_PLAN
+    const parsed = JSON.parse(raw) as unknown
+    if (isValidRunningPlan(parsed)) return parsed
+  } catch {
+    // ignore invalid stored plan
+  }
+  return DEFAULT_RUNNING_PLAN
+}
+
+export function writeDefaultRunningPlan(plan: RunningPlan): void {
+  if (!isValidRunningPlan(plan)) return
+  localStorage.setItem(DEFAULT_RUNNING_PLAN_STORAGE_KEY, JSON.stringify(plan))
+}
 
 /** In-progress run persisted for crash / refresh recovery */
 export type ActiveRunSession = {

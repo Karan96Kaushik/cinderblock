@@ -85,7 +85,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
 
   useEffect(() => {
     if (!showRestoredBanner) return
-    const timer = window.setTimeout(() => setShowRestoredBanner(false), 10_000)
+    const timer = window.setTimeout(() => setShowRestoredBanner(false), 5_000)
     return () => window.clearTimeout(timer)
   }, [showRestoredBanner])
 
@@ -260,7 +260,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
     <div className="px-4 pb-32">
       {showRestoredBanner && (
         <div className="mt-2 mb-5 rounded-xl border border-neon-yellow/30 bg-neon-yellow/5 px-4 py-3">
-          <p className="font-mono text-sm text-neon-yellow">Session restored after refresh</p>
+          <p className="font-mono text-sm text-neon-yellow">Session restored</p>
         </div>
       )}
 

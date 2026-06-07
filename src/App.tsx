@@ -21,6 +21,7 @@ function AppRoutes() {
             onStartTraining={() => navigate(paths.gym())}
             onContinueWorkout={(date) => navigate(paths.gym({ date, view: 'workout' }))}
             onStartRunning={() => navigate(paths.running())}
+            onContinueRun={() => navigate(paths.running('session'))}
             onOpenMetrics={() => navigate(paths.metrics())}
             onOpenSettings={() => navigate(paths.settings())}
           />

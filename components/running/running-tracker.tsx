@@ -1,19 +1,20 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { Haptic } from '@/lib/haptics'
 import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
 import {
   clearActiveRunSession,
-  DEFAULT_RUNNING_PLAN,
   formatPlanSummary,
   formatTimer,
-  hasResumableRunSession,
   PHASE_LABELS,
   PHASE_ORDER,
   readActiveRunSession,
+  readDefaultRunningPlan,
   readRunLog,
   restoreActiveRunSession,
+  type ActiveRunSession,
   type RunningPlan,
 } from '@/lib/running'
 import { parseRunningPath, paths } from '@/lib/routes'
@@ -26,7 +27,7 @@ interface RunningTrackerProps {
 
 function getInitialPlan(): RunningPlan {
   const saved = readActiveRunSession()
-  return saved?.plan ?? DEFAULT_RUNNING_PLAN
+  return saved?.plan ?? readDefaultRunningPlan()
 }
 
 export function RunningTracker({ onBack }: RunningTrackerProps) {
@@ -36,12 +37,18 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
   const view = parseRunningPath(location.pathname)
   const [plan, setPlan] = useState<RunningPlan>(getInitialPlan)
   const [recentRuns, setRecentRuns] = useState(() => readRunLog().slice(0, 3))
+  const [activeSession, setActiveSession] = useState<ActiveRunSession | null>(() =>
+    readActiveRunSession(),
+  )
   const today = format(new Date(), 'MMM d, yyyy')
 
-  const savedSession = readActiveRunSession()
+  useEffect(() => {
+    setActiveSession(readActiveRunSession())
+  }, [view])
+
   const canResume =
-    savedSession?.started &&
-    !restoreActiveRunSession(savedSession).finished &&
+    activeSession?.started &&
+    !restoreActiveRunSession(activeSession).finished &&
     view === 'plan'
 
   const goToPlan = () => navigate(paths.running('plan'))
@@ -49,22 +56,26 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
 
   const handleFinish = () => {
     setRecentRuns(readRunLog().slice(0, 3))
+    setActiveSession(null)
     goToPlan()
   }
 
   const handleResume = () => {
-    if (savedSession?.plan) setPlan(savedSession.plan)
+    if (activeSession?.plan) setPlan(activeSession.plan)
     goToSession()
   }
 
   const handleDiscard = () => {
     clearActiveRunSession()
+    setActiveSession(null)
+    setPlan(readDefaultRunningPlan())
+    Haptic.warning()
   }
 
   usePreventPullToRefresh(scrollRef)
 
   return (
-    <div className="min-h-screen bg-background flex flex-col overscroll-none">
+    <div className="h-dvh bg-background flex flex-col overflow-hidden overscroll-none">
       <div className="sticky top-0 z-50 bg-background/95 border-b border-border backdrop-blur-sm">
         <div className="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
           <button
@@ -82,7 +93,7 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-none">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-none">
       <div className="max-w-2xl mx-auto">
         {view === 'plan' && (
           <div className="px-4 pt-6 pb-28">
@@ -90,22 +101,22 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
               Run session
             </h1>
             <p className="font-mono text-sm text-muted-foreground mb-8">
-              Warmup · run · cooldown — default 5 · 30 · 5
+              Warmup · run · cooldown — {formatPlanSummary(plan)}
             </p>
 
-            {canResume && savedSession && (
+            {canResume && activeSession && (
               <div className="mb-8 rounded-xl border border-neon-yellow/30 bg-neon-yellow/5 p-5">
                 <p className="font-mono text-sm text-neon-yellow uppercase tracking-wider mb-2">
                   Session in progress
                 </p>
                 <p className="font-sans text-lg text-foreground mb-2">
-                  {formatPlanSummary(savedSession.plan)} ·{' '}
-                  {PHASE_LABELS[PHASE_ORDER[savedSession.phaseIndex] ?? 'warmup']}
+                  {formatPlanSummary(activeSession.plan)} ·{' '}
+                  {PHASE_LABELS[PHASE_ORDER[activeSession.phaseIndex] ?? 'warmup']}
                 </p>
                 <p className="font-mono text-sm text-muted-foreground mb-5">
-                  {savedSession.running
+                  {activeSession.running
                     ? 'Timer was running — will catch up from last timestamp'
-                    : `${formatTimer(savedSession.remainingSeconds)} remaining · paused`}
+                    : `${formatTimer(activeSession.remainingSeconds)} remaining · paused`}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -134,7 +145,10 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
             <button
               type="button"
               onClick={() => {
-                if (canResume) clearActiveRunSession()
+                if (canResume) {
+                  clearActiveRunSession()
+                  setActiveSession(null)
+                }
                 goToSession()
               }}
               data-haptic="success"

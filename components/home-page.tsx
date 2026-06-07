@@ -13,9 +13,15 @@ import { CyberHeader } from '@/components/cyber-header'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
 import { readGymLog } from '@/lib/sync/storage'
 import {
+  formatPlanSummary,
   formatRunSummary,
+  formatTimer,
   getCurrentWeekRuns,
   getLastRun,
+  hasResumableRunSession,
+  PHASE_LABELS,
+  PHASE_ORDER,
+  readActiveRunSession,
   readRunLog,
   type RunSessionLog,
 } from '@/lib/running'
@@ -38,6 +44,7 @@ interface HomePageProps {
   onStartTraining: () => void
   onContinueWorkout: (date: string) => void
   onStartRunning: () => void
+  onContinueRun: () => void
   onOpenMetrics: () => void
   onOpenSettings: () => void
 }
@@ -136,11 +143,13 @@ export function HomePage({
   onStartTraining,
   onContinueWorkout,
   onStartRunning,
+  onContinueRun,
   onOpenMetrics,
   onOpenSettings,
 }: HomePageProps) {
   const [store, setStore] = useState<GymStore>({})
   const [runs, setRuns] = useState<RunSessionLog[]>([])
+  const [activeRun, setActiveRun] = useState<ReturnType<typeof readActiveRunSession>>(null)
   const [stats, setStats] = useState({ sessions: 0, completed: 0, runs: 0 })
   const [latestWeight, setLatestWeight] = useState<string>()
   const [latestWaist, setLatestWaist] = useState<string>()
@@ -151,6 +160,7 @@ export function HomePage({
       const runLog = readRunLog()
       setStore(gymLog)
       setRuns(runLog)
+      setActiveRun(hasResumableRunSession() ? readActiveRunSession() : null)
       setStats({ ...getTrainingStats(gymLog), runs: runLog.length })
 
       const metrics = getLatestMetrics()
@@ -225,14 +235,26 @@ export function HomePage({
                   <ChevronRight className="w-4 h-4" />
                 </button>
               )}
-              <button
-                onClick={onStartRunning}
-                data-haptic="selection"
-                className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase border border-neon-orange/50 text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
-              >
-                <Footprints className="w-4 h-4" />
-                Start run
-              </button>
+              {activeRun ? (
+                <button
+                  onClick={onContinueRun}
+                  data-haptic="success"
+                  className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-yellow text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity flex items-center justify-center gap-2"
+                >
+                  <Footprints className="w-4 h-4" />
+                  Continue run
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={onStartRunning}
+                  data-haptic="selection"
+                  className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase border border-neon-orange/50 text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Footprints className="w-4 h-4" />
+                  Start run
+                </button>
+              )}
               <button
                 onClick={onOpenMetrics}
                 data-haptic="selection"
@@ -247,6 +269,15 @@ export function HomePage({
               <p className="font-mono text-xs text-muted-foreground mt-3">
                 {getWorkoutLabel(incompleteWorkout.log.workoutKey)} from{' '}
                 {format(parseISO(`${incompleteWorkout.date}T12:00:00`), 'EEE, MMM d')} — unfinished
+              </p>
+            )}
+            {activeRun && (
+              <p className="font-mono text-xs text-muted-foreground mt-3">
+                {formatPlanSummary(activeRun.plan)} ·{' '}
+                {PHASE_LABELS[PHASE_ORDER[activeRun.phaseIndex] ?? 'warmup']}
+                {activeRun.running
+                  ? ' — in progress'
+                  : ` · ${formatTimer(activeRun.remainingSeconds)} remaining · paused`}
               </p>
             )}
           </div>

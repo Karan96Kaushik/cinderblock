@@ -593,10 +593,12 @@ function BackupSection({ gymDays, runs }: { gymDays: number; runs: number }) {
   const [message, setMessage] = useState<string | null>(null)
 
   const handleDownload = () => {
-    const { gymDays: days, runs: runCount } = downloadTrainingLogsBackup()
+    const { gymDays: days, runs: runCount, metrics } = downloadTrainingLogsBackup()
     const parts = [
       days === 1 ? '1 workout day' : `${days} workout days`,
       runCount === 1 ? '1 run' : `${runCount} runs`,
+      metrics === 1 ? '1 metric entry' : `${metrics} metric entries`,
+      'settings',
     ]
     setMessage(`Downloaded backup (${parts.join(', ')}).`)
     Haptic.success()
@@ -606,8 +608,8 @@ function BackupSection({ gymDays, runs }: { gymDays: number; runs: number }) {
     <SectionCard title="Backup">
       <div className="space-y-4">
         <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-          Save all workout and run history as a JSON file. Use this to keep a local copy of your
-          training logs.
+          Save workout history, runs, body metrics, and app settings as a JSON file. Use this to keep
+          a local copy of your training data.
         </p>
 
         <button
