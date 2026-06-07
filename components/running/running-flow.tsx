@@ -73,6 +73,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
   const [showRestoredBanner, setShowRestoredBanner] = useState(
     () => initial.started && !initial.finished,
   )
+  const [confirmEndRun, setConfirmEndRun] = useState(false)
 
   const endAtRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
@@ -92,6 +93,10 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
   const sessionActive = !finished && (initial.started || !notStarted)
 
   useWakeLock(settings.alwaysAwake && sessionActive && !finished)
+
+  useEffect(() => {
+    if (phase !== 'run') setConfirmEndRun(false)
+  }, [phase])
 
   useEffect(() => {
     if (!showRestoredBanner) return
@@ -165,6 +170,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
     syncEndAtFromPhaseStart(startedAt, cooldownIndex)
     setRunning(true)
     Haptic.warning()
+    setConfirmEndRun(false)
   }, [halt, phase, phaseIndex, plan, remaining, running, syncEndAtFromPhaseStart])
 
   const advancePhase = useCallback(() => {
@@ -439,14 +445,40 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
         )}
 
         {phase === 'run' && !runEndedEarly && (
-          <button
-            type="button"
-            onClick={endRunEarly}
-            data-haptic="warning"
-            className="w-full min-h-[48px] rounded-xl border border-neon-red/30 font-mono text-sm tracking-widest uppercase text-neon-red hover:bg-neon-red/10 transition-colors"
-          >
-            End run
-          </button>
+          confirmEndRun ? (
+            <div className="rounded-xl border border-neon-red/30 bg-neon-red/5 p-4 space-y-3">
+              <p className="font-mono text-sm text-foreground text-center">
+                End run now and go to cooldown?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmEndRun(false)}
+                  data-haptic="light"
+                  className="flex-1 min-h-[44px] rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={endRunEarly}
+                  data-haptic="warning"
+                  className="flex-1 min-h-[44px] rounded-lg bg-neon-red/20 border border-neon-red/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-red"
+                >
+                  End run
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmEndRun(true)}
+              data-haptic="warning"
+              className="w-full min-h-[48px] rounded-xl border border-neon-red/30 font-mono text-sm tracking-widest uppercase text-neon-red hover:bg-neon-red/10 transition-colors"
+            >
+              End run
+            </button>
+          )
         )}
 
         <AlwaysAwakeToggle active={sessionActive} className="min-h-[48px] text-sm rounded-xl" />
