@@ -3,7 +3,8 @@ import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import program from '@/foundation-7-june.json'
-import type { GymStore, WorkoutKey } from './gym-tracker'
+import type { GymStore, WorkoutKey, ExerciseLog } from './gym-tracker'
+import { isExerciseAddressed } from './gym-tracker'
 
 interface WorkoutCalendarProps {
   store: GymStore
@@ -28,7 +29,7 @@ function isDayComplete(store: GymStore, dateStr: string): boolean {
   if (!log) return false
   if (log.workoutKey === 'rest') return true
   const exercises = Object.values(log.exercises)
-  return exercises.length > 0 && exercises.every((e) => e.completed)
+  return exercises.length > 0 && exercises.every((e: ExerciseLog) => isExerciseAddressed(e))
 }
 
 export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCalendarProps) {
@@ -111,6 +112,7 @@ export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCa
                 return (
                   <button
                     {...props}
+                    data-haptic="selection"
                     className={cn(
                       'w-full flex flex-col items-center justify-center gap-0.5 rounded-md',
                       'font-mono text-sm transition-colors min-h-[44px]',
@@ -219,6 +221,7 @@ export function WorkoutCalendar({ store, selectedDate, onSelectDate }: WorkoutCa
         <div className="max-w-2xl mx-auto">
           <button
             onClick={() => onSelectDate(today)}
+            data-haptic="success"
             className="w-full min-h-[52px] rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
           >
             + START TODAY'S WORKOUT

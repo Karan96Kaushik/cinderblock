@@ -16,5 +16,13 @@ dist/
 .deploy/
 .DS_Store
 .vercel
+.env
+.env.local
+
+# Lambda sync API
+lambda/node_modules/
+lambda/dist/
+lambda/function.zip
+lambda/.aws-sam/
 
 certificates

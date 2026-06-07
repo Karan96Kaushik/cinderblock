@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Check, Timer } from 'lucide-react'
+import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExerciseLog, ProgramExercise, SetLog } from './gym-tracker'
 
@@ -8,6 +8,7 @@ interface ExerciseStepProps {
   log: ExerciseLog | undefined
   onUpdateSets: (sets: SetLog[]) => void
   onMarkDone: () => void
+  onSkip: () => void
   onMarkUndone: () => void
 }
 
@@ -16,12 +17,15 @@ export function ExerciseStep({
   log,
   onUpdateSets,
   onMarkDone,
+  onSkip,
   onMarkUndone,
 }: ExerciseStepProps) {
   const [notesOpen, setNotesOpen] = useState(false)
 
   const sets = log?.sets ?? Array.from({ length: exercise.sets }, () => ({ weight: '', reps: '' }))
   const isCompleted = log?.completed ?? false
+  const isSkipped = log?.skipped ?? false
+  const isAddressed = isCompleted || isSkipped
   const hasDuration = Boolean(exercise.duration)
   const targetLabel = hasDuration ? exercise.duration : exercise.reps
 
@@ -38,7 +42,9 @@ export function ExerciseStep({
           <h2
             className={cn(
               'font-sans text-2xl font-bold tracking-wider uppercase leading-tight',
-              isCompleted ? 'text-neon-orange neon-text-orange' : 'text-foreground',
+              isCompleted && 'text-neon-orange neon-text-orange',
+              isSkipped && 'text-muted-foreground line-through decoration-muted-foreground/50',
+              !isAddressed && 'text-foreground',
             )}
           >
             {exercise.name}
@@ -48,9 +54,14 @@ export function ExerciseStep({
               <Check className="w-4 h-4 text-neon-orange" />
             </div>
           )}
+          {isSkipped && (
+            <div className="shrink-0 w-8 h-8 rounded-full bg-muted/30 border border-muted-foreground/40 flex items-center justify-center mt-0.5">
+              <SkipForward className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-3 mt-2">
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
           <span className="font-mono text-xs bg-card/80 border border-border rounded px-2 py-1 text-muted-foreground">
             {exercise.sets} {exercise.sets === 1 ? 'set' : 'sets'}
           </span>
@@ -60,6 +71,9 @@ export function ExerciseStep({
           </span>
           {isCompleted && (
             <span className="font-mono text-xs text-neon-orange tracking-wider">DONE</span>
+          )}
+          {isSkipped && (
+            <span className="font-mono text-xs text-muted-foreground tracking-wider">SKIPPED</span>
           )}
         </div>
       </div>
@@ -72,9 +86,9 @@ export function ExerciseStep({
               key={i}
               className={cn(
                 'flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors',
-                isCompleted
-                  ? 'bg-neon-orange/5 border-neon-orange/20'
-                  : 'bg-card/50 border-border',
+                isCompleted && 'bg-neon-orange/5 border-neon-orange/20',
+                isSkipped && 'bg-muted/20 border-border/60 opacity-60',
+                !isAddressed && 'bg-card/50 border-border',
               )}
             >
               <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">
@@ -91,7 +105,7 @@ export function ExerciseStep({
                     value={set.weight}
                     onChange={(e) => updateSet(i, 'weight', e.target.value)}
                     placeholder="—"
-                    disabled={isCompleted}
+                    disabled={isAddressed}
                     className={cn(
                       'w-full h-11 bg-input/60 border border-border rounded-md px-3',
                       'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
@@ -110,7 +124,7 @@ export function ExerciseStep({
                     value={set.reps}
                     onChange={(e) => updateSet(i, 'reps', e.target.value)}
                     placeholder="—"
-                    disabled={isCompleted}
+                    disabled={isAddressed}
                     className={cn(
                       'w-full h-11 bg-input/60 border border-border rounded-md px-3',
                       'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
@@ -124,11 +138,12 @@ export function ExerciseStep({
           ))}
         </div>
       ) : (
-        /* Duration-based exercise (e.g. Plank) */
         <div
           className={cn(
             'rounded-lg border p-4 mb-5 flex items-center gap-4',
-            isCompleted ? 'bg-neon-orange/5 border-neon-orange/20' : 'bg-card/50 border-border',
+            isCompleted && 'bg-neon-orange/5 border-neon-orange/20',
+            isSkipped && 'bg-muted/20 border-border/60 opacity-60',
+            !isAddressed && 'bg-card/50 border-border',
           )}
         >
           <Timer className="w-6 h-6 text-muted-foreground shrink-0" />
@@ -146,6 +161,7 @@ export function ExerciseStep({
         <div className="mb-5">
           <button
             onClick={() => setNotesOpen((o) => !o)}
+            data-haptic="light"
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors min-h-[36px] w-full text-left"
           >
             <span className="font-mono text-xs uppercase tracking-wider">Notes</span>
@@ -168,22 +184,34 @@ export function ExerciseStep({
         </div>
       )}
 
-      {/* Mark done / undone */}
-      {isCompleted ? (
+      {/* Actions */}
+      {isAddressed ? (
         <button
           onClick={onMarkUndone}
+          data-haptic="selection"
           className="w-full min-h-[44px] rounded-lg border border-neon-orange/30 font-mono text-sm text-neon-orange/70 hover:text-neon-orange hover:border-neon-orange/60 transition-colors flex items-center justify-center gap-2"
         >
           <Check className="w-4 h-4" />
           UNDO
         </button>
       ) : (
-        <button
-          onClick={onMarkDone}
-          className="w-full min-h-[52px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
-        >
-          MARK DONE
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onMarkDone}
+            data-haptic="success"
+            className="w-full min-h-[52px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
+          >
+            MARK DONE
+          </button>
+          <button
+            onClick={onSkip}
+            data-haptic="warning"
+            className="w-full min-h-[44px] rounded-lg border border-border font-mono text-sm tracking-widest uppercase text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors flex items-center justify-center gap-2"
+          >
+            <SkipForward className="w-4 h-4" />
+            SKIP
+          </button>
+        </div>
       )}
     </div>
   )

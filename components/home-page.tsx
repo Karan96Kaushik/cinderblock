@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Calendar, ChevronRight, Dumbbell, TrendingUp } from 'lucide-react'
+import { Calendar, ChevronRight, Dumbbell, Ruler, TrendingUp } from 'lucide-react'
 import program from '@/foundation-7-june.json'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
 import { GlitchText } from '@/components/glitch-text'
+import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
+import { readGymLog } from '@/lib/sync/storage'
 import type { GymStore } from '@/components/gym/gym-tracker'
-
-const STORAGE_KEY = 'cinderblock_gym_log'
+import { isExerciseAddressed } from '@/components/gym/gym-tracker'
 
 interface HomePageProps {
   onStartTraining: () => void
+  onOpenMetrics: () => void
 }
 
 function getTrainingStats(store: GymStore) {
@@ -20,21 +22,22 @@ function getTrainingStats(store: GymStore) {
     if (!log) return false
     if (log.workoutKey === 'rest') return true
     const exercises = Object.values(log.exercises)
-    return exercises.length > 0 && exercises.every((e) => e.completed)
+    return exercises.length > 0 && exercises.every((e) => isExerciseAddressed(e))
   })
   return { sessions: dates.length, completed: completed.length }
 }
 
-export function HomePage({ onStartTraining }: HomePageProps) {
+export function HomePage({ onStartTraining, onOpenMetrics }: HomePageProps) {
   const [stats, setStats] = useState({ sessions: 0, completed: 0 })
+  const [latestWeight, setLatestWeight] = useState<string>()
+  const [latestWaist, setLatestWaist] = useState<string>()
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) setStats(getTrainingStats(JSON.parse(raw) as GymStore))
-    } catch {
-      // ignore corrupt storage
-    }
+    setStats(getTrainingStats(readGymLog()))
+
+    const metrics = getLatestMetrics()
+    setLatestWeight(getLatestMetricValue(metrics, 'weight'))
+    setLatestWaist(getLatestMetricValue(metrics, 'waist'))
   }, [])
 
   const todayLabel = format(new Date(), 'EEEE, MMMM d')
@@ -43,7 +46,7 @@ export function HomePage({ onStartTraining }: HomePageProps) {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <CyberGrid />
-      <CyberHeader onTrainingClick={onStartTraining} />
+      <CyberHeader onTrainingClick={onStartTraining} onMetricsClick={onOpenMetrics} />
 
       <main className="relative z-10 pt-24 pb-20">
         <section className="max-w-3xl mx-auto px-4 py-10 md:py-16">
@@ -66,28 +69,61 @@ export function HomePage({ onStartTraining }: HomePageProps) {
               after week — built for strength alongside running.
             </p>
 
-            <button
-              onClick={onStartTraining}
-              className="w-full sm:w-auto min-h-[52px] px-8 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
-            >
-              START TRAINING
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button
+                onClick={onStartTraining}
+                data-haptic="success"
+                className="w-full sm:w-auto min-h-[52px] px-8 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
+              >
+                START TRAINING
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onOpenMetrics}
+                data-haptic="selection"
+                className="w-full sm:w-auto min-h-[52px] px-8 rounded-lg font-mono text-sm tracking-widest uppercase border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Ruler className="w-4 h-4" />
+                BODY METRICS
+              </button>
+            </div>
 
             <p className="font-mono text-xs text-muted-foreground mt-4">{todayLabel}</p>
           </div>
 
           {/* Stats from local log */}
-          {(stats.sessions > 0 || stats.completed > 0) && (
-            <div className="grid grid-cols-2 gap-3 mb-12">
-              <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
-                <div className="font-sans text-2xl font-bold text-neon-orange">{stats.sessions}</div>
-                <div className="font-mono text-xs text-muted-foreground mt-1">SESSIONS LOGGED</div>
-              </div>
-              <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
-                <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.completed}</div>
-                <div className="font-mono text-xs text-muted-foreground mt-1">COMPLETED</div>
-              </div>
+          {(stats.sessions > 0 || stats.completed > 0 || latestWeight || latestWaist) && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
+              {stats.sessions > 0 && (
+                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="font-sans text-2xl font-bold text-neon-orange">{stats.sessions}</div>
+                  <div className="font-mono text-xs text-muted-foreground mt-1">SESSIONS LOGGED</div>
+                </div>
+              )}
+              {stats.completed > 0 && (
+                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="font-sans text-2xl font-bold text-neon-yellow">{stats.completed}</div>
+                  <div className="font-mono text-xs text-muted-foreground mt-1">COMPLETED</div>
+                </div>
+              )}
+              {latestWeight && (
+                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="font-sans text-2xl font-bold text-foreground">
+                    {latestWeight}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">kg</span>
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground mt-1">WEIGHT</div>
+                </div>
+              )}
+              {latestWaist && (
+                <div className="bg-card/50 border border-border rounded-lg p-4 text-center">
+                  <div className="font-sans text-2xl font-bold text-foreground">
+                    {latestWaist}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">cm</span>
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground mt-1">WAIST</div>
+                </div>
+              )}
             </div>
           )}
 
@@ -194,6 +230,7 @@ export function HomePage({ onStartTraining }: HomePageProps) {
             </p>
             <button
               onClick={onStartTraining}
+              data-haptic="selection"
               className="w-full sm:w-auto min-h-[48px] px-6 rounded-lg border border-neon-orange/50 font-mono text-sm tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors"
             >
               OPEN TRAINING LOG

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import program from '@/foundation-7-june.json'
 import type { DayLog, GymStore, ProgramExercise, SetLog, WorkoutKey } from './gym-tracker'
+import { isExerciseAddressed } from './gym-tracker'
 import { ExerciseStep } from './exercise-step'
 
 interface WorkoutFlowProps {
@@ -33,7 +34,7 @@ export function WorkoutFlow({
 
   const [currentStep, setCurrentStep] = useState<number>(() => {
     const firstPending = exercises.findIndex(
-      (ex) => !dayLog.exercises[ex.name]?.completed,
+      (ex) => !isExerciseAddressed(dayLog.exercises[ex.name]),
     )
     return firstPending === -1 ? 0 : firstPending
   })
@@ -53,17 +54,24 @@ export function WorkoutFlow({
   const completedCount = exercises.filter(
     (ex) => dayLog.exercises[ex.name]?.completed,
   ).length
-  const allDone = completedCount === exercises.length
+  const skippedCount = exercises.filter(
+    (ex) => dayLog.exercises[ex.name]?.skipped,
+  ).length
+  const addressedCount = exercises.filter(
+    (ex) => isExerciseAddressed(dayLog.exercises[ex.name]),
+  ).length
+  const allAddressed = addressedCount === exercises.length
 
   const displayDate = format(new Date(date + 'T12:00:00'), 'MMM d')
 
   const updateExerciseLog = (
     exerciseName: string,
-    patch: { sets?: SetLog[]; completed?: boolean },
+    patch: { sets?: SetLog[]; completed?: boolean; skipped?: boolean },
   ) => {
     const prev = dayLog.exercises[exerciseName] ?? {
       sets: [],
       completed: false,
+      skipped: false,
     }
     const updatedLog: DayLog = {
       ...dayLog,
@@ -75,28 +83,37 @@ export function WorkoutFlow({
     onUpdateStore({ ...store, [date]: updatedLog })
   }
 
+  const advanceToNextPending = (fromStep: number) => {
+    const nextPending = exercises.findIndex(
+      (ex, i) =>
+        i !== fromStep &&
+        !isExerciseAddressed(dayLog.exercises[ex.name]) &&
+        i > fromStep,
+    )
+    const anyPending = exercises.findIndex(
+      (ex, i) => i !== fromStep && !isExerciseAddressed(dayLog.exercises[ex.name]),
+    )
+    setCurrentStep(nextPending !== -1 ? nextPending : anyPending !== -1 ? anyPending : fromStep)
+  }
+
   const handleMarkDone = () => {
     const exercise = exercises[currentStep]
     if (!exercise) return
-    updateExerciseLog(exercise.name, { completed: true })
+    updateExerciseLog(exercise.name, { completed: true, skipped: false })
+    advanceToNextPending(currentStep)
+  }
 
-    const nextPending = exercises.findIndex(
-      (ex, i) =>
-        i !== currentStep &&
-        !dayLog.exercises[ex.name]?.completed &&
-        i > currentStep,
-    )
-    const anyPending = exercises.findIndex(
-      (ex, i) => i !== currentStep && !dayLog.exercises[ex.name]?.completed,
-    )
-    const next = nextPending !== -1 ? nextPending : anyPending !== -1 ? anyPending : currentStep
-    setCurrentStep(next)
+  const handleSkip = () => {
+    const exercise = exercises[currentStep]
+    if (!exercise) return
+    updateExerciseLog(exercise.name, { completed: false, skipped: true })
+    advanceToNextPending(currentStep)
   }
 
   const handleMarkUndone = () => {
     const exercise = exercises[currentStep]
     if (!exercise) return
-    updateExerciseLog(exercise.name, { completed: false })
+    updateExerciseLog(exercise.name, { completed: false, skipped: false })
   }
 
   const handleUpdateSets = (sets: SetLog[]) => {
@@ -114,6 +131,7 @@ export function WorkoutFlow({
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <button
           onClick={onBack}
+          data-haptic="light"
           className="flex items-center gap-1 text-muted-foreground hover:text-neon-orange transition-colors min-h-[44px]"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -138,13 +156,16 @@ export function WorkoutFlow({
           style={{ scrollbarWidth: 'none' }}
         >
           {exercises.map((ex, i) => {
-            const done = dayLog.exercises[ex.name]?.completed
+            const log = dayLog.exercises[ex.name]
+            const done = log?.completed
+            const skipped = log?.skipped
             const isCurrent = i === currentStep
 
             return (
               <button
                 key={ex.name}
                 onClick={() => setCurrentStep(i)}
+                data-haptic="selection"
                 title={ex.name}
                 className={cn(
                   'shrink-0 rounded-full transition-all focus-visible:outline-none',
@@ -153,7 +174,9 @@ export function WorkoutFlow({
                     ? 'w-6 h-3 bg-neon-orange animate-pulse rounded-full'
                     : done
                       ? 'w-3 h-3 bg-neon-orange/80'
-                      : 'w-3 h-3 bg-border hover:bg-muted-foreground/50',
+                      : skipped
+                        ? 'w-3 h-3 bg-muted-foreground/40 ring-1 ring-muted-foreground/60'
+                        : 'w-3 h-3 bg-border hover:bg-muted-foreground/50',
                 )}
               />
             )
@@ -165,6 +188,7 @@ export function WorkoutFlow({
           <div className="h-px flex-1 bg-border/50" />
           <span className="font-mono text-xs text-muted-foreground shrink-0">
             {completedCount}/{exercises.length} done
+            {skippedCount > 0 && ` · ${skippedCount} skipped`}
           </span>
           <div className="h-px flex-1 bg-border/50" />
         </div>
@@ -179,19 +203,21 @@ export function WorkoutFlow({
               log={currentLog}
               onUpdateSets={handleUpdateSets}
               onMarkDone={handleMarkDone}
+              onSkip={handleSkip}
               onMarkUndone={handleMarkUndone}
             />
           </div>
         )}
 
         {/* All done celebration */}
-        {allDone && (
+        {allAddressed && (
           <div className="mt-6 bg-neon-orange/10 border border-neon-orange/30 rounded-xl p-6 text-center">
             <div className="font-sans text-lg font-bold text-neon-orange neon-text-orange mb-1">
-              ALL DONE
+              {skippedCount > 0 ? 'WORKOUT COMPLETE' : 'ALL DONE'}
             </div>
             <div className="font-mono text-xs text-muted-foreground">
-              {workout?.name} complete · {displayDate}
+              {workout?.name} · {displayDate}
+              {skippedCount > 0 && ` · ${skippedCount} skipped`}
             </div>
           </div>
         )}
@@ -220,6 +246,7 @@ export function WorkoutFlow({
         <div className="max-w-2xl mx-auto p-4 flex items-center gap-3">
           <button
             onClick={() => setCurrentStep((s) => Math.max(0, s - 1))}
+            data-haptic="selection"
             disabled={currentStep === 0}
             className={cn(
               'h-12 w-12 shrink-0 rounded-lg border flex items-center justify-center transition-colors',
@@ -232,35 +259,48 @@ export function WorkoutFlow({
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {allDone ? (
+          {allAddressed ? (
             <button
               onClick={onFinish}
+              data-haptic="success"
               className="flex-1 min-h-[48px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
             >
               FINISH WORKOUT
             </button>
-          ) : currentLog?.completed ? (
+          ) : isExerciseAddressed(currentLog) ? (
             <button
               onClick={() =>
                 setCurrentStep(
-                  exercises.findIndex((ex) => !dayLog.exercises[ex.name]?.completed),
+                  exercises.findIndex((ex) => !isExerciseAddressed(dayLog.exercises[ex.name])),
                 )
               }
+              data-haptic="selection"
               className="flex-1 min-h-[48px] rounded-lg border border-neon-orange/30 font-mono text-sm text-neon-orange tracking-widest uppercase hover:bg-neon-orange/10 transition-colors"
             >
               NEXT PENDING →
             </button>
           ) : (
-            <button
-              onClick={handleMarkDone}
-              className="flex-1 min-h-[48px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
-            >
-              MARK DONE →
-            </button>
+            <div className="flex-1 flex gap-2">
+              <button
+                onClick={handleSkip}
+                data-haptic="warning"
+                className="min-h-[48px] px-4 rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors"
+              >
+                SKIP
+              </button>
+              <button
+                onClick={handleMarkDone}
+                data-haptic="success"
+                className="flex-1 min-h-[48px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
+              >
+                MARK DONE →
+              </button>
+            </div>
           )}
 
           <button
             onClick={() => setCurrentStep((s) => Math.min(exercises.length - 1, s + 1))}
+            data-haptic="selection"
             disabled={currentStep === exercises.length - 1}
             className={cn(
               'h-12 w-12 shrink-0 rounded-lg border flex items-center justify-center transition-colors',

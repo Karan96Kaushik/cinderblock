@@ -76,6 +76,7 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
       <div className="px-4 pt-5 pb-4">
         <button
           onClick={onBack}
+          data-haptic="light"
           className="flex items-center gap-1 text-muted-foreground hover:text-neon-orange transition-colors mb-4 min-h-[44px]"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -96,6 +97,7 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
             <button
               key={opt.key}
               onClick={() => setSelected(opt.key)}
+              data-haptic="selection"
               className={cn(
                 'relative flex flex-col items-start text-left rounded-xl border p-4 transition-all min-h-[100px]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-orange/50',
@@ -130,6 +132,7 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
       <div className="px-4 mb-6">
         <button
           onClick={() => setSelected('rest')}
+          data-haptic="selection"
           className={cn(
             'w-full flex items-center justify-center rounded-xl border py-4 transition-all',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted',
@@ -177,6 +180,7 @@ export function WorkoutSelector({ date, existingKey, onSelect, onBack }: Workout
           <button
             onClick={() => selected && onSelect(selected)}
             disabled={!selected}
+            data-haptic="success"
             className={cn(
               'w-full min-h-[52px] rounded-lg font-mono text-sm font-bold tracking-widest uppercase transition-all',
               selected

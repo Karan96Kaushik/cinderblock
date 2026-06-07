@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import program from '@/foundation-7-june.json'
+import { useAuth } from '@/hooks/use-auth'
+import { readGymLog, saveGymLog } from '@/lib/sync/storage'
 import { WorkoutCalendar } from './workout-calendar'
 import { WorkoutSelector } from './workout-selector'
 import { WorkoutFlow } from './workout-flow'
@@ -12,6 +14,7 @@ export type SetLog = { weight: string; reps: string }
 export type ExerciseLog = {
   sets: SetLog[]
   completed: boolean
+  skipped?: boolean
 }
 
 export type DayLog = {
@@ -29,7 +32,10 @@ export type ProgramExercise = {
   notes: string[]
 }
 
-const STORAGE_KEY = 'cinderblock_gym_log'
+export function isExerciseAddressed(log: ExerciseLog | undefined): boolean {
+  if (!log) return false
+  return log.completed || Boolean(log.skipped)
+}
 
 type WorkoutMap = Record<string, { name: string; exercises: ProgramExercise[] }>
 
@@ -43,6 +49,7 @@ function initExercises(key: WorkoutKey): Record<string, ExerciseLog> {
     result[ex.name] = {
       sets: Array.from({ length: ex.sets }, () => ({ weight: '', reps: '' })),
       completed: false,
+      skipped: false,
     }
   })
   return result
@@ -55,28 +62,23 @@ interface GymTrackerProps {
 type View = 'calendar' | 'selector' | 'flow'
 
 export function GymTracker({ onBack }: GymTrackerProps) {
+  const { token } = useAuth()
   const today = format(new Date(), 'yyyy-MM-dd')
   const [view, setView] = useState<View>('calendar')
   const [selectedDate, setSelectedDate] = useState<string>(today)
   const [store, setStore] = useState<GymStore>({})
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) setStore(JSON.parse(raw) as GymStore)
-    } catch {
-      // ignore corrupt storage
-    }
+    setStore(readGymLog())
   }, [])
 
-  const saveStore = useCallback((newStore: GymStore) => {
-    setStore(newStore)
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newStore))
-    } catch {
-      // ignore storage errors
-    }
-  }, [])
+  const saveStore = useCallback(
+    (newStore: GymStore) => {
+      setStore(newStore)
+      saveGymLog(newStore, token)
+    },
+    [token],
+  )
 
   const handleSelectDate = (date: string) => {
     setSelectedDate(date)
@@ -130,6 +132,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
         <div className="max-w-2xl mx-auto flex items-center justify-between px-4 py-3">
           <button
             onClick={onBack}
+            data-haptic="light"
             className="flex items-center gap-1.5 text-muted-foreground hover:text-neon-orange transition-colors min-h-[44px] px-1"
           >
             <span className="font-mono text-xs">← CINDERBLOCK</span>
