@@ -13,6 +13,8 @@ export type RunSessionLog = {
   date: string
   plan: RunningPlan
   completedAt: number
+  /** User ended before the timer finished all phases */
+  endedEarly?: boolean
 }
 
 export const WARMUP_PRESETS_MINUTES = [3, 5, 10, 15] as const
@@ -227,16 +229,45 @@ export function writeRunLog(runs: RunSessionLog[]): void {
   localStorage.setItem(RUN_LOG_STORAGE_KEY, JSON.stringify(runs))
 }
 
-export function saveRunSession(plan: RunningPlan, date: string): RunSessionLog {
+export function saveRunSession(
+  plan: RunningPlan,
+  date: string,
+  options?: { endedEarly?: boolean },
+): RunSessionLog {
   const entry: RunSessionLog = {
     id: `${date}-${Date.now()}`,
     date,
     plan,
     completedAt: Date.now(),
+    ...(options?.endedEarly ? { endedEarly: true } : {}),
   }
   const next = [entry, ...readRunLog()]
   writeRunLog(next)
   return entry
+}
+
+/** Logged plan when ending early: full warmup/cooldown from session, actual run time only */
+export function buildLoggedRunPlan(
+  plan: RunningPlan,
+  phaseIndex: number,
+  remainingSeconds: number,
+): RunningPlan {
+  const runPhaseIndex = PHASE_ORDER.indexOf('run')
+  let runMinutes = 0
+
+  if (phaseIndex > runPhaseIndex) {
+    runMinutes = plan.runMinutes
+  } else if (phaseIndex === runPhaseIndex) {
+    const runSeconds = phaseDurationSeconds(plan, 'run')
+    const elapsedSeconds = Math.max(0, runSeconds - remainingSeconds)
+    runMinutes = elapsedSeconds > 0 ? Math.max(1, Math.round(elapsedSeconds / 60)) : 0
+  }
+
+  return {
+    warmupMinutes: plan.warmupMinutes,
+    runMinutes,
+    cooldownMinutes: plan.cooldownMinutes,
+  }
 }
 
 export function deleteRunSession(id: string): void {
@@ -265,7 +296,8 @@ export function getRunTotalMinutes(plan: RunningPlan): number {
 }
 
 export function formatRunSummary(run: RunSessionLog): string {
-  return `Run ${formatPlanSummary(run.plan)} · ${getRunTotalMinutes(run.plan)} min`
+  const suffix = run.endedEarly ? ' · ended early' : ''
+  return `Run ${formatPlanSummary(run.plan)} · ${getRunTotalMinutes(run.plan)} min${suffix}`
 }
 
 export function getRunsForDate(runs: RunSessionLog[], date: string): RunSessionLog[] {

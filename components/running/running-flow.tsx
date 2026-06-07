@@ -10,6 +10,7 @@ import { useMediaSession } from '@/hooks/use-media-session'
 import { MediaTrackControls } from '@/components/media-track-controls'
 import { AlwaysAwakeToggle } from '@/components/always-awake-toggle'
 import {
+  buildLoggedRunPlan,
   clearActiveRunSession,
   formatTimer,
   PHASE_HINTS,
@@ -59,6 +60,10 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
   const [remaining, setRemaining] = useState(initial.remaining)
   const [running, setRunning] = useState(initial.running)
   const [finished, setFinished] = useState(initial.finished)
+  const [endedEarly, setEndedEarly] = useState(false)
+  const [loggedPlan, setLoggedPlan] = useState<RunningPlan | null>(
+    initial.finished ? initial.plan : null,
+  )
   const [phaseStartedAt, setPhaseStartedAt] = useState<number | null>(initial.phaseStartedAt)
   const [showRestoredBanner, setShowRestoredBanner] = useState(
     () => initial.started && !initial.finished,
@@ -124,10 +129,27 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
   const completeSession = useCallback(() => {
     halt()
     setFinished(true)
+    setEndedEarly(false)
+    setLoggedPlan(plan)
     clearActiveRunSession()
     saveRunSession(plan, format(new Date(), 'yyyy-MM-dd'))
     Haptic.success()
   }, [halt, plan])
+
+  const endRunEarly = useCallback(() => {
+    let currentRemaining = remaining
+    if (running && endAtRef.current !== null) {
+      currentRemaining = Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000))
+    }
+    halt()
+    const logged = buildLoggedRunPlan(plan, phaseIndex, currentRemaining)
+    setFinished(true)
+    setEndedEarly(true)
+    setLoggedPlan(logged)
+    clearActiveRunSession()
+    saveRunSession(logged, format(new Date(), 'yyyy-MM-dd'), { endedEarly: true })
+    Haptic.warning()
+  }, [halt, phaseIndex, plan, remaining, running])
 
   const advancePhase = useCallback(() => {
     const nextIndex = phaseIndex + 1
@@ -233,16 +255,23 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
     onPause: () => toggleRunRef.current(),
   })
 
-  if (finished) {
+  if (finished && loggedPlan) {
     return (
       <div className="px-4 py-8 flex flex-col items-center text-center min-h-[60vh] justify-center">
         <div className="bg-neon-orange/10 border border-neon-orange/30 rounded-2xl p-10 w-full max-w-md">
           <div className="font-sans text-3xl sm:text-4xl font-bold text-neon-orange neon-text-orange mb-3">
-            RUN COMPLETE
+            {endedEarly ? 'RUN ENDED' : 'RUN COMPLETE'}
           </div>
-          <p className="font-mono text-sm text-muted-foreground mb-8">
-            {plan.warmupMinutes}m warmup · {plan.runMinutes}m run · {plan.cooldownMinutes}m cooldown
+          <p className="font-mono text-sm text-muted-foreground mb-2">
+            {loggedPlan.warmupMinutes}m warmup · {loggedPlan.runMinutes}m run ·{' '}
+            {loggedPlan.cooldownMinutes}m cooldown
           </p>
+          {endedEarly && (
+            <p className="font-mono text-xs text-muted-foreground/80 mb-8">
+              Warmup and cooldown logged from your session plan
+            </p>
+          )}
+          {!endedEarly && <div className="mb-8" />}
           <button
             type="button"
             onClick={onFinish}
@@ -371,6 +400,17 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
               Skip
             </button>
           </div>
+        )}
+
+        {!notStarted && (
+          <button
+            type="button"
+            onClick={endRunEarly}
+            data-haptic="warning"
+            className="w-full min-h-[48px] rounded-xl border border-neon-red/30 font-mono text-sm tracking-widest uppercase text-neon-red hover:bg-neon-red/10 transition-colors"
+          >
+            End run
+          </button>
         )}
 
         <AlwaysAwakeToggle active={sessionActive} className="min-h-[48px] text-sm rounded-xl" />

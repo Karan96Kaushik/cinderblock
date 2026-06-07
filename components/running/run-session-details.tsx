@@ -32,7 +32,7 @@ export function RunSessionDetails({ run, showDate = false }: RunSessionDetailsPr
           <p className="font-mono text-xs text-muted-foreground mt-0.5">{displayTime}</p>
         </div>
         <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded shrink-0 bg-neon-yellow/10 text-neon-yellow">
-          Complete
+          {run.endedEarly ? 'Ended early' : 'Complete'}
         </span>
       </div>
 
@@ -56,6 +56,11 @@ export function RunSessionDetails({ run, showDate = false }: RunSessionDetailsPr
       </div>
 
       <p className="font-mono text-xs text-muted-foreground">{total} min total</p>
+      {run.endedEarly && (
+        <p className="font-mono text-[10px] text-muted-foreground/80 mt-1">
+          Warmup and cooldown from session plan
+        </p>
+      )}
     </div>
   )
 }
