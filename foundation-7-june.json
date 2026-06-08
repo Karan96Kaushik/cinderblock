@@ -39,23 +39,23 @@
       }
     },
     "weeks": {
-      "week1-2": [
+      "week 1-2": [
         "Learn technique.",
         "Leave 2-3 reps in reserve.",
         "Do not train to failure."
       ],
-      "week3-6": [
+      "week 3-6": [
         "Begin pushing closer to the top of rep ranges.",
         "Increase weights where appropriate."
       ],
-      "week7-8": [
+      "week 7-8": [
         "Review progress.",
         "Compare strength numbers to Week 1.",
         "Consider a lighter week if feeling fatigued."
       ]
     },
     "workouts": {
-      "upperA": {
+      "upper A": {
         "name": "Upper A",
         "exercises": [
           {
@@ -128,7 +128,7 @@
           }
         ]
       },
-      "lowerA": {
+      "lower A": {
         "name": "Lower A",
         "exercises": [
           {
@@ -188,7 +188,7 @@
           }
         ]
       },
-      "upperB": {
+      "upper B": {
         "name": "Upper B",
         "exercises": [
           {
@@ -249,7 +249,7 @@
           }
         ]
       },
-      "lowerB": {
+      "lower B": {
         "name": "Lower B",
         "exercises": [
           {
