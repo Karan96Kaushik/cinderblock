@@ -15,6 +15,7 @@ import { readGymLog, saveGymLog } from '@/lib/sync/storage'
 import { readRunLog, type RunSessionLog } from '@/lib/running'
 import { isValidDateParam, parseGymPath, paths, type GymView } from '@/lib/routes'
 import { WorkoutCalendar } from './workout-calendar'
+import { WorkoutExplore } from './workout-explore'
 import { WorkoutSelector } from './workout-selector'
 import { WorkoutFlow } from './workout-flow'
 
@@ -178,6 +179,8 @@ export function GymTracker({ onBack }: GymTrackerProps) {
   const view = resolveViewFromStore(route.view, selectedDate, store)
 
   useEffect(() => {
+    if (route.view === 'explore') return
+
     if (route.date && !isValidDateParam(route.date)) {
       navigate(paths.gym(), { replace: true })
       return
@@ -258,7 +261,24 @@ export function GymTracker({ onBack }: GymTrackerProps) {
     goToGym(selectedDate, 'select')
   }
 
+  const handleExploreWorkout = (key: ProgramWorkoutKey) => {
+    navigate(paths.gym({ view: 'explore', exploreWorkoutKey: key }))
+  }
+
+  const handleExploreBack = () => {
+    if (route.exploreWorkoutKey) {
+      navigate(paths.gym({ view: 'explore' }))
+    } else {
+      navigate(paths.gym())
+    }
+  }
+
+  const handleExploreStartTraining = () => {
+    navigate(paths.gym({ date: today, view: 'select' }))
+  }
+
   const dayLog = store[selectedDate]
+  const isExplore = route.view === 'explore'
   const hasFlow =
     dayLog &&
     dayLog.workoutKey !== REST_DAY_KEY &&
@@ -277,15 +297,24 @@ export function GymTracker({ onBack }: GymTrackerProps) {
             <span className="font-mono text-xs">← CINDERBLOCK</span>
           </button>
           <span className="font-sans text-xs font-bold tracking-widest text-neon-orange neon-text-orange">
-            TRAINING
+            {isExplore ? 'EXPLORE' : 'TRAINING'}
           </span>
           <span className="font-mono text-xs text-muted-foreground w-[100px] text-right">
-            {format(new Date(selectedDate + 'T12:00:00'), 'MMM d, yyyy')}
+            {isExplore ? 'Preview' : format(new Date(selectedDate + 'T12:00:00'), 'MMM d, yyyy')}
           </span>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto">
+        {view === 'explore' && (
+          <WorkoutExplore
+            workoutKey={route.exploreWorkoutKey}
+            onSelectWorkout={handleExploreWorkout}
+            onBack={handleExploreBack}
+            onStartTraining={handleExploreStartTraining}
+          />
+        )}
+
         {view === 'calendar' && (
           <WorkoutCalendar
             store={store}
@@ -295,6 +324,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
             onOpenWorkout={handleOpenWorkout}
             onStartWorkout={handleStartWorkout}
             onStartToday={handleStartToday}
+            onExploreWorkout={() => navigate(paths.gym({ view: 'explore' }))}
           />
         )}
 

@@ -1,6 +1,10 @@
 import { useLayoutEffect, type RefObject } from 'react'
 
-export function usePreventPullToRefresh(containerRef: RefObject<HTMLElement | null>) {
+export function usePreventPullToRefresh(
+  containerRef: RefObject<HTMLElement | null>,
+  /** Re-bind when the scroll container changes (e.g. carousel slide switch) */
+  bindKey?: unknown,
+) {
   useLayoutEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -37,5 +41,5 @@ export function usePreventPullToRefresh(containerRef: RefObject<HTMLElement | nu
       container.removeEventListener('touchstart', onTouchStart)
       container.removeEventListener('touchmove', onTouchMove)
     }
-  }, [containerRef])
+  }, [containerRef, bindKey])
 }

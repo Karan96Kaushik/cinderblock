@@ -1,4 +1,4 @@
-export type GymView = 'calendar' | 'select' | 'workout'
+export type GymView = 'calendar' | 'select' | 'workout' | 'explore'
 export type RunningView = 'plan' | 'session'
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -9,7 +9,12 @@ export function isValidDateParam(date: string): boolean {
 
 export const paths = {
   home: () => '/',
-  gym: (opts?: { date?: string; view?: GymView }) => {
+  gym: (opts?: { date?: string; view?: GymView; exploreWorkoutKey?: string }) => {
+    if (opts?.view === 'explore') {
+      return opts.exploreWorkoutKey
+        ? `/gym/explore/${opts.exploreWorkoutKey}`
+        : '/gym/explore'
+    }
     if (!opts?.date) return '/gym'
     if (!opts.view || opts.view === 'calendar') return `/gym/${opts.date}`
     if (opts.view === 'select') return `/gym/${opts.date}/select`
@@ -24,7 +29,13 @@ export const paths = {
 export function parseGymPath(pathname: string): {
   date?: string
   view: GymView
+  exploreWorkoutKey?: string
 } {
+  const exploreMatch = pathname.match(/^\/gym\/explore(?:\/([^/]+))?\/?$/)
+  if (exploreMatch) {
+    return { view: 'explore', exploreWorkoutKey: exploreMatch[1] }
+  }
+
   const match = pathname.match(/^\/gym(?:\/(\d{4}-\d{2}-\d{2}))?(?:\/(select|workout))?\/?$/)
   if (!match) return { view: 'calendar' }
 

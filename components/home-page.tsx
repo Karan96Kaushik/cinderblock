@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns'
-import { Calendar, ChevronRight, Footprints, Ruler, TrendingUp } from 'lucide-react'
+import { BookOpen, Calendar, ChevronRight, Footprints, Ruler, TrendingUp } from 'lucide-react'
 import {
+  getProgramWorkoutKeys,
+  getScheduleHint,
   getScheduleSectionLabel,
   getWorkoutLabel,
   getWorkoutTextColorClass,
   program,
   REST_DAY_KEY,
+  type ProgramWorkoutKey,
 } from '@/lib/program'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
@@ -42,6 +45,7 @@ import { cn } from '@/lib/utils'
 
 interface HomePageProps {
   onStartTraining: () => void
+  onExploreWorkout: (workoutKey?: string) => void
   onContinueWorkout: (date: string) => void
   onStartRunning: () => void
   onContinueRun: () => void
@@ -141,6 +145,7 @@ function WeekWorkoutRow({ date, log }: { date: string; log: DayLog }) {
 
 export function HomePage({
   onStartTraining,
+  onExploreWorkout,
   onContinueWorkout,
   onStartRunning,
   onContinueRun,
@@ -458,26 +463,54 @@ export function HomePage({
           </section>
 
           <section className="mb-10">
-            <SectionDivider label="WORKOUT TYPES" />
+            <SectionDivider label="EXPLORE WORKOUT" />
+            <div className="home-surface border border-border rounded-lg p-4 md:p-5 mb-4">
+              <div className="flex items-center gap-2 text-neon-orange mb-2">
+                <BookOpen className="w-4 h-4" />
+                <span className="font-sans text-sm font-bold text-foreground">Preview your program</span>
+              </div>
+              <p className="font-mono text-xs text-muted-foreground leading-relaxed mb-4">
+                View exercises, sets, reps, and coaching notes from {program.name} without
+                starting a session.
+              </p>
+              <button
+                type="button"
+                onClick={() => onExploreWorkout()}
+                data-haptic="selection"
+                className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
+              >
+                Browse all workouts
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              {Object.entries(program.workouts).map(([key, workout]) => (
-                <div
-                  key={key}
-                  className="home-surface-muted border border-border rounded-lg p-4 hover:border-neon-orange/40 transition-colors"
-                >
-                  <div
-                    className={cn(
-                      'font-sans text-sm font-bold tracking-wider uppercase mb-1',
-                      getWorkoutTextColorClass(key),
-                    )}
+              {getProgramWorkoutKeys().map((key: ProgramWorkoutKey) => {
+                const workout = program.workouts[key]
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => onExploreWorkout(key)}
+                    data-haptic="selection"
+                    className="home-surface-muted border border-border rounded-lg p-4 hover:border-neon-orange/40 transition-colors text-left"
                   >
-                    {workout.name}
-                  </div>
-                  <div className="font-mono text-xs text-muted-foreground">
-                    {workout.exercises.length} exercises
-                  </div>
-                </div>
-              ))}
+                    <div
+                      className={cn(
+                        'font-sans text-sm font-bold tracking-wider uppercase mb-1',
+                        getWorkoutTextColorClass(key),
+                      )}
+                    >
+                      {workout.name}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground line-clamp-2">
+                      {getScheduleHint(key)}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground/70 mt-1">
+                      {workout.exercises.length} exercises
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </section>
 

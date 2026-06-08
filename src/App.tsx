@@ -19,6 +19,13 @@ function AppRoutes() {
         element={
           <HomePage
             onStartTraining={() => navigate(paths.gym())}
+            onExploreWorkout={(workoutKey) =>
+              navigate(
+                workoutKey
+                  ? paths.gym({ view: 'explore', exploreWorkoutKey: workoutKey })
+                  : paths.gym({ view: 'explore' }),
+              )
+            }
             onContinueWorkout={(date) => navigate(paths.gym({ date, view: 'workout' }))}
             onStartRunning={() => navigate(paths.running())}
             onContinueRun={() => navigate(paths.running('session'))}

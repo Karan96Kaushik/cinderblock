@@ -17,6 +17,7 @@ interface WorkoutCalendarProps {
   onOpenWorkout: () => void
   onStartWorkout: () => void
   onStartToday: () => void
+  onExploreWorkout: () => void
 }
 
 function getDotColor(workoutKey: string) {
@@ -31,6 +32,7 @@ export function WorkoutCalendar({
   onOpenWorkout,
   onStartWorkout,
   onStartToday,
+  onExploreWorkout,
 }: WorkoutCalendarProps) {
   const selected = new Date(selectedDate + 'T12:00:00')
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -49,6 +51,14 @@ export function WorkoutCalendar({
           TRAINING LOG
         </h1>
         <p className="font-mono text-xs text-muted-foreground mt-1">{program.name}</p>
+        <button
+          type="button"
+          onClick={onExploreWorkout}
+          data-haptic="selection"
+          className="mt-3 w-full min-h-[40px] rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors"
+        >
+          Explore workout
+        </button>
       </div>
 
       {/* Stats row */}

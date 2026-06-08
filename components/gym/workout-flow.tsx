@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,6 +24,9 @@ interface WorkoutFlowProps {
   onFinish: () => void
 }
 
+/** Fraction of slide width required to change exercise on swipe (Embla default ≈ 0.2). */
+const EXERCISE_SWIPE_COMMIT_RATIO = 0.45
+
 export function WorkoutFlow({
   date,
   workoutKey,
@@ -47,7 +50,19 @@ export function WorkoutFlow({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [carouselApi, setCarouselApi] = useState<CarouselApi>()
 
-  usePreventPullToRefresh(scrollRef)
+  const carouselOpts = useMemo(
+    () => ({
+      duration: 30,
+      dragFree: false,
+    }),
+    [],
+  )
+
+  usePreventPullToRefresh(scrollRef, currentStep)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [currentStep])
 
   useEffect(() => {
     if (!carouselApi) return
@@ -61,6 +76,59 @@ export function WorkoutFlow({
 
     return () => {
       carouselApi.off('select', onSelect)
+    }
+  }, [carouselApi])
+
+  useEffect(() => {
+    if (!carouselApi) return
+
+    let startIndex = 0
+    let maxProgressDelta = 0
+    let isDragging = false
+
+    const snapCount = () => carouselApi.scrollSnapList().length
+
+    const progressForIndex = (index: number) => {
+      const n = snapCount()
+      return n <= 1 ? 0 : index / (n - 1)
+    }
+
+    const onPointerDown = () => {
+      isDragging = true
+      startIndex = carouselApi.selectedScrollSnap()
+      maxProgressDelta = 0
+    }
+
+    const onScroll = () => {
+      if (!isDragging) return
+      const startProgress = progressForIndex(startIndex)
+      maxProgressDelta = Math.max(
+        maxProgressDelta,
+        Math.abs(carouselApi.scrollProgress() - startProgress),
+      )
+    }
+
+    const onPointerUp = () => {
+      isDragging = false
+      requestAnimationFrame(() => {
+        const newIndex = carouselApi.selectedScrollSnap()
+        if (newIndex === startIndex) return
+
+        const slidesMoved = maxProgressDelta * Math.max(snapCount() - 1, 1)
+        if (slidesMoved < EXERCISE_SWIPE_COMMIT_RATIO) {
+          carouselApi.scrollTo(startIndex)
+        }
+      })
+    }
+
+    carouselApi.on('pointerDown', onPointerDown)
+    carouselApi.on('scroll', onScroll)
+    carouselApi.on('pointerUp', onPointerUp)
+
+    return () => {
+      carouselApi.off('pointerDown', onPointerDown)
+      carouselApi.off('scroll', onScroll)
+      carouselApi.off('pointerUp', onPointerUp)
     }
   }, [carouselApi])
 
@@ -168,7 +236,7 @@ export function WorkoutFlow({
   const currentLog = currentExercise ? dayLog.exercises[currentExercise.name] : undefined
 
   return (
-    <div className="min-h-[calc(100vh-57px)] flex flex-col overscroll-none">
+    <div className="h-[calc(100dvh-57px)] flex flex-col min-h-0 overscroll-none">
       {/* Workout header row */}
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <button
@@ -236,71 +304,76 @@ export function WorkoutFlow({
         </div>
       </div>
 
-      {/* Exercise step — swipeable carousel + scrollable extras */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-none pb-40">
+      {/* Exercise step — swipe between slides; scroll vertically inside each slide */}
+      <div className="flex-1 min-h-0">
         <Carousel
           key={`${date}-${workoutKey}`}
           setApi={setCarouselApi}
-          opts={{ startIndex: currentStep, duration: 30, dragFree: false }}
-          className="w-full"
+          opts={{ ...carouselOpts, startIndex: currentStep }}
+          className="h-full w-full [&_[data-slot=carousel-content]]:h-full [&_[data-slot=carousel-content]>div]:h-full"
         >
-          <CarouselContent className="-ml-0">
+          <CarouselContent className="-ml-0 h-full">
             {exercises.map((exercise, i) => {
               const log = dayLog.exercises[exercise.name]
               const isActive = i === currentStep
 
               return (
-                <CarouselItem key={exercise.name} className="pl-0 basis-full">
-                  <div className="px-4 py-2 touch-pan-y">
-                    <ExerciseStep
-                      exercise={exercise}
-                      log={log}
-                      isActive={isActive}
-                      onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
-                      onMarkDone={() => handleMarkDoneAt(i)}
-                      onSkip={() => handleSkipAt(i)}
-                      onMarkUndone={() => handleMarkUndoneAt(i)}
-                    />
+                <CarouselItem key={exercise.name} className="pl-0 basis-full h-full min-h-0">
+                  <div
+                    ref={isActive ? scrollRef : undefined}
+                    className="h-full min-h-0 overflow-y-auto overscroll-contain touch-pan-y pb-40"
+                  >
+                    <div className="px-4 py-2">
+                      <ExerciseStep
+                        exercise={exercise}
+                        log={log}
+                        isActive={isActive}
+                        onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
+                        onMarkDone={() => handleMarkDoneAt(i)}
+                        onSkip={() => handleSkipAt(i)}
+                        onMarkUndone={() => handleMarkUndoneAt(i)}
+                      />
+                    </div>
+
+                    <div className="px-4">
+                      {allAddressed && (
+                        <div className="mt-6 bg-neon-orange/10 border border-neon-orange/30 rounded-xl p-6 text-center">
+                          <div className="font-sans text-lg font-bold text-neon-orange neon-text-orange mb-1">
+                            {skippedCount > 0 ? 'WORKOUT COMPLETE' : 'ALL DONE'}
+                          </div>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {workout?.name} · {displayDate}
+                            {skippedCount > 0 && ` · ${skippedCount} skipped`}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-8 mb-4 bg-card/20 border border-border/40 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Settings2 className="w-3 h-3 text-neon-orange/60" />
+                          <span className="font-mono text-xs text-neon-orange/70 uppercase tracking-wider">
+                            Reminders
+                          </span>
+                        </div>
+                        <ul className="space-y-1.5">
+                          {program.globalNotes.slice(0, 4).map((note, i) => (
+                            <li
+                              key={i}
+                              className="font-mono text-xs text-muted-foreground/70 flex gap-2"
+                            >
+                              <span className="text-neon-orange/30 shrink-0">›</span>
+                              <span>{note}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </CarouselItem>
               )
             })}
           </CarouselContent>
         </Carousel>
-
-        <div className="px-4">
-
-        {/* All done celebration */}
-        {allAddressed && (
-          <div className="mt-6 bg-neon-orange/10 border border-neon-orange/30 rounded-xl p-6 text-center">
-            <div className="font-sans text-lg font-bold text-neon-orange neon-text-orange mb-1">
-              {skippedCount > 0 ? 'WORKOUT COMPLETE' : 'ALL DONE'}
-            </div>
-            <div className="font-mono text-xs text-muted-foreground">
-              {workout?.name} · {displayDate}
-              {skippedCount > 0 && ` · ${skippedCount} skipped`}
-            </div>
-          </div>
-        )}
-
-        {/* Global reminder notes */}
-        <div className="mt-8 mb-4 bg-card/20 border border-border/40 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Settings2 className="w-3 h-3 text-neon-orange/60" />
-            <span className="font-mono text-xs text-neon-orange/70 uppercase tracking-wider">
-              Reminders
-            </span>
-          </div>
-          <ul className="space-y-1.5">
-            {program.globalNotes.slice(0, 4).map((note, i) => (
-              <li key={i} className="font-mono text-xs text-muted-foreground/70 flex gap-2">
-                <span className="text-neon-orange/30 shrink-0">›</span>
-                <span>{note}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        </div>
       </div>
 
       {/* Sticky bottom bar: prev | (finish if all done, else mark done) | next */}
