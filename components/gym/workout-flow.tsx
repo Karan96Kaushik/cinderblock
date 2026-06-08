@@ -25,7 +25,18 @@ interface WorkoutFlowProps {
 }
 
 /** Fraction of slide width required to change exercise on swipe (Embla default ≈ 0.2). */
-const EXERCISE_SWIPE_COMMIT_RATIO = 0.45
+const EXERCISE_SWIPE_COMMIT_RATIO = 0.2
+
+/** Embla scroll physics — higher duration / friction = slower snap (recommended duration 20–60). */
+const CAROUSEL_SCROLL_DURATION = 58
+const CAROUSEL_DRAG_FRICTION = 0.78
+
+function applyCarouselSnapPhysics(api: CarouselApi | undefined) {
+  if (!api) return
+  api.internalEngine().scrollBody
+    .useFriction(CAROUSEL_DRAG_FRICTION)
+    .useDuration(CAROUSEL_SCROLL_DURATION)
+}
 
 export function WorkoutFlow({
   date,
@@ -52,7 +63,7 @@ export function WorkoutFlow({
 
   const carouselOpts = useMemo(
     () => ({
-      duration: 30,
+      duration: CAROUSEL_SCROLL_DURATION,
       dragFree: false,
     }),
     [],
@@ -71,10 +82,20 @@ export function WorkoutFlow({
       setCurrentStep(carouselApi.selectedScrollSnap())
     }
 
+    const onInit = () => applyCarouselSnapPhysics(carouselApi)
+    const onPointerDown = () => applyCarouselSnapPhysics(carouselApi)
+
+    carouselApi.on('init', onInit)
+    carouselApi.on('reInit', onInit)
+    carouselApi.on('pointerDown', onPointerDown)
     carouselApi.on('select', onSelect)
+    onInit()
     onSelect()
 
     return () => {
+      carouselApi.off('init', onInit)
+      carouselApi.off('reInit', onInit)
+      carouselApi.off('pointerDown', onPointerDown)
       carouselApi.off('select', onSelect)
     }
   }, [carouselApi])
