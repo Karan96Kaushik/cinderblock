@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/carousel'
 import { getProgramWorkout, isProgramWorkoutKey, program, type ProgramWorkoutKey } from '@/lib/program'
 import type { DayLog, GymStore, SetLog } from './gym-tracker'
-import { isExerciseAddressed } from './gym-tracker'
+import { getLastExerciseRecord, isExerciseAddressed } from './gym-tracker'
 import { ExerciseStep } from './exercise-step'
 
 interface WorkoutFlowProps {
@@ -348,6 +348,7 @@ export function WorkoutFlow({
                       <ExerciseStep
                         exercise={exercise}
                         log={log}
+                        lastRecord={getLastExerciseRecord(store, exercise.name, date)}
                         isActive={isActive}
                         onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
                         onMarkDone={() => handleMarkDoneAt(i)}

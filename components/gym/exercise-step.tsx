@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ExerciseLog, ProgramExercise, SetLog } from './gym-tracker'
+import type { ExerciseLog, LastExerciseRecord, ProgramExercise, SetLog } from './gym-tracker'
+import { createEmptySet, formatSetSummary, hasSetLogData } from './gym-tracker'
+import { isTimedHoldExercise } from '@/lib/program'
 import { ExerciseStopwatch } from './exercise-stopwatch'
 
 interface ExerciseStepProps {
   exercise: ProgramExercise
   log: ExerciseLog | undefined
+  lastRecord?: LastExerciseRecord | null
   isActive?: boolean
   onUpdateSets: (sets: SetLog[]) => void
   onMarkDone: () => void
   onSkip: () => void
   onMarkUndone: () => void
-}
-
-function hasSetData(set: SetLog): boolean {
-  return Boolean(set.weight.trim() || set.reps.trim())
 }
 
 function computeVisibleSetCount(
@@ -27,7 +27,7 @@ function computeVisibleSetCount(
 
   let lastWithData = -1
   for (let i = 0; i < Math.min(sets.length, totalSets); i++) {
-    if (hasSetData(sets[i])) lastWithData = i
+    if (hasSetLogData(sets[i])) lastWithData = i
   }
 
   if (lastWithData === -1) return 1
@@ -36,19 +36,20 @@ function computeVisibleSetCount(
 }
 
 function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
-  if (index <= 0 || hasSetData(sets[index])) return sets
+  if (index <= 0 || hasSetLogData(sets[index])) return sets
 
   const prev = sets[index - 1]
-  if (!hasSetData(prev)) return sets
+  if (!hasSetLogData(prev)) return sets
 
   const next = [...sets]
-  next[index] = { weight: prev.weight, reps: prev.reps }
+  next[index] = { ...prev }
   return next
 }
 
 export function ExerciseStep({
   exercise,
   log,
+  lastRecord,
   isActive = true,
   onUpdateSets,
   onMarkDone,
@@ -57,12 +58,13 @@ export function ExerciseStep({
 }: ExerciseStepProps) {
   const [notesOpen, setNotesOpen] = useState(false)
 
-  const sets = log?.sets ?? Array.from({ length: exercise.sets }, () => ({ weight: '', reps: '' }))
+  const sets =
+    log?.sets ?? Array.from({ length: exercise.sets }, () => createEmptySet(exercise))
   const isCompleted = log?.completed ?? false
   const isSkipped = log?.skipped ?? false
   const isAddressed = isCompleted || isSkipped
-  const hasDuration = Boolean(exercise.duration)
-  const targetLabel = hasDuration ? exercise.duration : exercise.reps
+  const isTimedHold = isTimedHoldExercise(exercise)
+  const targetLabel = isTimedHold ? exercise.duration : exercise.reps
 
   const [visibleSetCount, setVisibleSetCount] = useState(() =>
     computeVisibleSetCount(sets, exercise.sets, isAddressed),
@@ -76,7 +78,7 @@ export function ExerciseStep({
     const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
 
     if (
-      hasSetData(next[index]) &&
+      hasSetLogData(next[index]) &&
       index === visibleSetCount - 1 &&
       visibleSetCount < exercise.sets
     ) {
@@ -98,6 +100,7 @@ export function ExerciseStep({
   }
 
   const visibleSets = sets.slice(0, visibleSetCount)
+  const lastSessionSummary = lastRecord ? formatSetSummary(lastRecord.log) : null
 
   return (
     <div className="flex flex-col">
@@ -131,7 +134,7 @@ export function ExerciseStep({
             {exercise.sets} {exercise.sets === 1 ? 'set' : 'sets'}
           </span>
           <span className="font-mono text-xs bg-card/80 border border-border rounded px-2 py-1 text-muted-foreground flex items-center gap-1">
-            {hasDuration && <Timer className="w-3 h-3" />}
+            {isTimedHold && <Timer className="w-3 h-3" />}
             {targetLabel ?? '—'}
           </span>
           {isCompleted && (
@@ -144,61 +147,41 @@ export function ExerciseStep({
       </div>
 
       {/* Set rows */}
-      {!hasDuration ? (
-        <div className="space-y-2 mb-5">
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Log sets
+      <div className="space-y-2 mb-5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Log sets
+          </span>
+          {!isAddressed && (
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {visibleSetCount} of {exercise.sets} shown
             </span>
-            {!isAddressed && (
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {visibleSetCount} of {exercise.sets} shown
-              </span>
+          )}
+        </div>
+        {visibleSets.map((set, i) => (
+          <div
+            key={i}
+            className={cn(
+              'flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors',
+              isCompleted && 'bg-neon-orange/5 border-neon-orange/20',
+              isSkipped && 'bg-muted/20 border-border/60 opacity-60',
+              !isAddressed && 'bg-card/50 border-border',
             )}
-          </div>
-          {visibleSets.map((set, i) => (
-            <div
-              key={i}
-              className={cn(
-                'flex items-center gap-3 rounded-lg border px-3 py-3 transition-colors',
-                isCompleted && 'bg-neon-orange/5 border-neon-orange/20',
-                isSkipped && 'bg-muted/20 border-border/60 opacity-60',
-                !isAddressed && 'bg-card/50 border-border',
-              )}
-            >
-              <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">
-                SET {i + 1}
-              </span>
-              <div className="flex-1 flex items-center gap-2">
+          >
+            <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">
+              SET {i + 1}
+            </span>
+            <div className="flex-1 flex items-center gap-2">
+              {isTimedHold ? (
                 <div className="flex-1">
                   <label className="font-mono text-xs text-muted-foreground block mb-1">
-                    Weight (kg)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={set.weight}
-                    onChange={(e) => updateSet(i, 'weight', e.target.value)}
-                    onFocus={() => handleSetFocus(i)}
-                    placeholder="—"
-                    disabled={isAddressed}
-                    className={cn(
-                      'w-full h-11 bg-input/60 border border-border rounded-md px-3',
-                      'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
-                      'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
-                      'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                    )}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="font-mono text-xs text-muted-foreground block mb-1">
-                    Reps
+                    Seconds held
                   </label>
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={set.reps}
-                    onChange={(e) => updateSet(i, 'reps', e.target.value)}
+                    value={set.seconds ?? ''}
+                    onChange={(e) => updateSet(i, 'seconds', e.target.value)}
                     onFocus={() => handleSetFocus(i)}
                     placeholder="—"
                     disabled={isAddressed}
@@ -210,26 +193,82 @@ export function ExerciseStep({
                     )}
                   />
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div
-          className={cn(
-            'rounded-lg border p-4 mb-5 flex items-center gap-4',
-            isCompleted && 'bg-neon-orange/5 border-neon-orange/20',
-            isSkipped && 'bg-muted/20 border-border/60 opacity-60',
-            !isAddressed && 'bg-card/50 border-border',
-          )}
-        >
-          <Timer className="w-6 h-6 text-muted-foreground shrink-0" />
-          <div>
-            <div className="font-sans text-lg font-bold text-foreground">{exercise.duration}</div>
-            <div className="font-mono text-xs text-muted-foreground">
-              {exercise.sets} {exercise.sets === 1 ? 'set' : 'sets'} · hold time
+              ) : (
+                <>
+                  <div className="flex-1">
+                    <label className="font-mono text-xs text-muted-foreground block mb-1">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={set.weight}
+                      onChange={(e) => updateSet(i, 'weight', e.target.value)}
+                      onFocus={() => handleSetFocus(i)}
+                      placeholder="—"
+                      disabled={isAddressed}
+                      className={cn(
+                        'w-full h-11 bg-input/60 border border-border rounded-md px-3',
+                        'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
+                        'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
+                        'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                      )}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="font-mono text-xs text-muted-foreground block mb-1">
+                      Reps
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={set.reps}
+                      onChange={(e) => updateSet(i, 'reps', e.target.value)}
+                      onFocus={() => handleSetFocus(i)}
+                      placeholder="—"
+                      disabled={isAddressed}
+                      className={cn(
+                        'w-full h-11 bg-input/60 border border-border rounded-md px-3',
+                        'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
+                        'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
+                        'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                      )}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
+        ))}
+      </div>
+
+      {(exercise.muscles.length > 0 || (lastRecord && lastSessionSummary)) && (
+        <div className="mb-5 space-y-3">
+          {exercise.muscles.length > 0 && (
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1.5">
+                Muscles trained
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {exercise.muscles.map((muscle) => (
+                  <span
+                    key={muscle}
+                    className="font-mono text-xs bg-neon-orange/10 border border-neon-orange/20 rounded px-2 py-0.5 text-neon-orange/80"
+                  >
+                    {muscle}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {lastRecord && lastSessionSummary && (
+            <div className="rounded-lg border border-border/60 bg-card/30 px-3 py-2.5">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">
+                Last session · {format(new Date(`${lastRecord.date}T12:00:00`), 'MMM d')}
+              </span>
+              <span className="font-mono text-xs text-foreground/80">{lastSessionSummary}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -237,7 +276,7 @@ export function ExerciseStep({
 
       {/* Notes (collapsible) */}
       {exercise.notes && exercise.notes.length > 0 && (
-        <div className="mb-5">
+        <div className="mb-2">
           <button
             onClick={() => setNotesOpen((o) => !o)}
             data-haptic="light"
@@ -264,7 +303,7 @@ export function ExerciseStep({
       )}
 
       {/* Actions */}
-      {isAddressed ? (
+      {/* {isAddressed ? (
         <button
           onClick={onMarkUndone}
           data-haptic="selection"
@@ -291,7 +330,7 @@ export function ExerciseStep({
             SKIP
           </button>
         </div>
-      )}
+      )} */}
     </div>
   )
 }

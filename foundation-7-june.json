@@ -62,6 +62,7 @@
             "name": "Row Machine",
             "sets": 3,
             "reps": "8-12",
+            "muscles": ["Lats", "Rhomboids", "Rear delts", "Biceps", "Mid traps"],
             "notes": [
               "Pull elbows toward hips.",
               "Avoid shrugging shoulders.",
@@ -72,6 +73,7 @@
             "name": "Lat Pulldown",
             "sets": 3,
             "reps": "8-12",
+            "muscles": ["Lats", "Biceps", "Rear delts"],
             "notes": [
               "Pull to upper chest.",
               "Lead with elbows.",
@@ -82,6 +84,7 @@
             "name": "Shoulder Press Machine",
             "sets": 3,
             "reps": "8-12",
+            "muscles": ["Front delts", "Side delts", "Triceps"],
             "notes": [
               "Keep core tight.",
               "Press overhead smoothly.",
@@ -92,6 +95,7 @@
             "name": "Pectoral Fly Machine",
             "sets": 3,
             "reps": "10-15",
+            "muscles": ["Chest"],
             "notes": [
               "Slight bend in elbows.",
               "Focus on chest contraction.",
@@ -102,6 +106,7 @@
             "name": "Rear Delt Machine",
             "sets": 2,
             "reps": "12-15",
+            "muscles": ["Rear delts", "Rhomboids"],
             "notes": [
               "Move through full range.",
               "Keep shoulders down."
@@ -111,6 +116,7 @@
             "name": "Push-Ups",
             "sets": 3,
             "reps": "Near failure",
+            "muscles": ["Chest", "Front delts", "Triceps", "Core"],
             "notes": [
               "Use full range of motion.",
               "Chest close to floor.",
@@ -121,6 +127,8 @@
             "name": "Plank",
             "sets": 3,
             "duration": "30-60 seconds",
+            "seconds": "",
+            "muscles": ["Abs", "Obliques", "Lower back"],
             "notes": [
               "Brace core.",
               "Do not let hips sag."
@@ -135,6 +143,7 @@
             "name": "Leg Press",
             "sets": 4,
             "reps": "8-12",
+            "muscles": ["Quads", "Glutes"],
             "notes": [
               "Lower under control.",
               "Push through full foot.",
@@ -145,6 +154,7 @@
             "name": "Seated Leg Curl",
             "sets": 3,
             "reps": "10-15",
+            "muscles": ["Hamstrings"],
             "notes": [
               "Pause briefly at contraction.",
               "Control lowering phase."
@@ -154,6 +164,7 @@
             "name": "Walking Lunges",
             "sets": 3,
             "reps": "10-12 per leg",
+            "muscles": ["Quads", "Glutes", "Hamstrings"],
             "notes": [
               "Take controlled steps.",
               "Keep torso upright."
@@ -163,6 +174,7 @@
             "name": "Leg Extension",
             "sets": 2,
             "reps": "12-15",
+            "muscles": ["Quads"],
             "notes": [
               "Avoid swinging.",
               "Pause at top."
@@ -172,6 +184,7 @@
             "name": "Calf Raises",
             "sets": 3,
             "reps": "12-20",
+            "muscles": ["Calves"],
             "notes": [
               "Use full stretch.",
               "Pause at top."
@@ -181,6 +194,7 @@
             "name": "Crunches or Leg Raises",
             "sets": 3,
             "reps": "10-20",
+            "muscles": ["Abs", "Hip flexors"],
             "notes": [
               "Control movement.",
               "Avoid using momentum."
@@ -195,6 +209,7 @@
             "name": "Lat Pulldown",
             "sets": 3,
             "reps": "8-12",
+            "muscles": ["Lats", "Biceps", "Rear delts"],
             "notes": [
               "Use a different grip from Upper A if possible."
             ]
@@ -203,6 +218,7 @@
             "name": "Row Machine",
             "sets": 3,
             "reps": "8-12",
+            "muscles": ["Lats", "Rhomboids", "Rear delts", "Biceps", "Mid traps"],
             "notes": [
               "Focus on squeezing shoulder blades together."
             ]
@@ -211,6 +227,7 @@
             "name": "Shoulder Press Machine",
             "sets": 3,
             "reps": "8-12",
+            "muscles": ["Front delts", "Side delts", "Triceps"],
             "notes": [
               "Maintain steady tempo."
             ]
@@ -219,6 +236,7 @@
             "name": "Pectoral Fly Machine",
             "sets": 3,
             "reps": "10-15",
+            "muscles": ["Chest"],
             "notes": [
               "Prioritize range of motion over weight."
             ]
@@ -227,6 +245,7 @@
             "name": "Rear Delt Machine",
             "sets": 2,
             "reps": "12-15",
+            "muscles": ["Rear delts", "Rhomboids"],
             "notes": [
               "Avoid using momentum."
             ]
@@ -235,6 +254,7 @@
             "name": "Push-Ups",
             "sets": 3,
             "reps": "Near failure",
+            "muscles": ["Chest", "Front delts", "Triceps", "Core"],
             "notes": [
               "Stop when form breaks down."
             ]
@@ -242,7 +262,9 @@
           {
             "name": "Side Plank",
             "sets": 3,
+            "seconds": "",
             "duration": "20-45 seconds each side",
+            "muscles": ["Obliques", "Abs", "Glute medius"],
             "notes": [
               "Keep body straight."
             ]
@@ -256,6 +278,7 @@
             "name": "Leg Press",
             "sets": 4,
             "reps": "10-15",
+            "muscles": ["Quads", "Glutes"],
             "notes": [
               "Slightly higher reps than Lower A."
             ]
@@ -264,6 +287,7 @@
             "name": "Seated Leg Curl",
             "sets": 3,
             "reps": "10-15",
+            "muscles": ["Hamstrings"],
             "notes": [
               "Control every rep."
             ]
@@ -272,6 +296,7 @@
             "name": "Bulgarian Split Squat",
             "sets": 3,
             "reps": "8-12 per leg",
+            "muscles": ["Quads", "Glutes", "Hamstrings"],
             "notes": [
               "Use bodyweight initially if needed.",
               "Balance is more important than weight."
@@ -281,6 +306,7 @@
             "name": "Leg Extension",
             "sets": 2,
             "reps": "12-15",
+            "muscles": ["Quads"],
             "notes": [
               "Smooth controlled reps."
             ]
@@ -289,6 +315,7 @@
             "name": "Calf Raises",
             "sets": 3,
             "reps": "12-20",
+            "muscles": ["Calves"],
             "notes": [
               "Use full range."
             ]
@@ -297,6 +324,7 @@
             "name": "Crunches or Leg Raises",
             "sets": 3,
             "reps": "10-20",
+            "muscles": ["Abs", "Hip flexors"],
             "notes": [
               "Keep tension on abs throughout."
             ]

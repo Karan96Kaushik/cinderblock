@@ -11,7 +11,14 @@ export type ProgramExercise = {
   sets: number
   reps?: string
   duration?: string
+  /** Present on timed holds — each set logs seconds held. */
+  seconds?: string
+  muscles: string[]
   notes: string[]
+}
+
+export function isTimedHoldExercise(exercise: ProgramExercise): boolean {
+  return Boolean(exercise.duration)
 }
 
 export type ProgramWorkout = {

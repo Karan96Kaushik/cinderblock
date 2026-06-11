@@ -44,6 +44,7 @@ function ExercisePreview({ exercise, index }: { exercise: ProgramExercise; index
               </span>
             )}
           </div>
+
         </div>
       </div>
 
@@ -57,6 +58,24 @@ function ExercisePreview({ exercise, index }: { exercise: ProgramExercise; index
           ))}
         </ul>
       )}
+
+      {exercise.muscles.length > 0 && (
+            <div className="mt-2.5">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1.5">
+                Muscles trained
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {exercise.muscles.map((muscle) => (
+                  <span
+                    key={muscle}
+                    className="font-mono text-xs bg-neon-orange/10 border border-neon-orange/20 rounded px-2 py-0.5 text-neon-orange/80"
+                  >
+                    {muscle}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
     </div>
   )
 }
@@ -89,7 +108,7 @@ export function WorkoutExplore({
           </button>
 
           <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider mb-1">
-            Explore · read only
+            Explore
           </p>
           <h1 className={cn('font-sans text-3xl font-bold tracking-wider uppercase', styles.color)}>
             {workout.name}

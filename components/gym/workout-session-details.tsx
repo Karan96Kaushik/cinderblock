@@ -119,7 +119,7 @@ export function WorkoutSessionDetails({
       : undefined
   const exercises: ProgramExercise[] =
     workout?.exercises ??
-    Object.keys(log.exercises).map((name) => ({ name, sets: 0, notes: [] }))
+    Object.keys(log.exercises).map((name) => ({ name, sets: 0, muscles: [], notes: [] }))
   const completed = Object.values(log.exercises).filter((e) => e.completed).length
   const skipped = Object.values(log.exercises).filter((e) => e.skipped).length
   const logged = Object.values(log.exercises).filter(

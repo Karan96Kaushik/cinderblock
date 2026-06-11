@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/use-auth'
 import {
   getProgramWorkout,
   isProgramWorkoutKey,
+  isTimedHoldExercise,
   program,
   REST_DAY_KEY,
   type ProgramExercise,
@@ -22,7 +23,18 @@ import { WorkoutFlow } from './workout-flow'
 export type { ProgramExercise, ProgramWorkoutKey, WorkoutKey } from '@/lib/program'
 export { getWorkoutLabel, program } from '@/lib/program'
 
-export type SetLog = { weight: string; reps: string }
+export type SetLog = { weight: string; reps: string; seconds?: string }
+
+export function createEmptySet(exercise: ProgramExercise): SetLog {
+  if (isTimedHoldExercise(exercise)) {
+    return { weight: '', reps: '', seconds: '' }
+  }
+  return { weight: '', reps: '' }
+}
+
+export function hasSetLogData(set: SetLog): boolean {
+  return Boolean(set.weight.trim() || set.reps.trim() || set.seconds?.trim())
+}
 
 export type ExerciseLog = {
   sets: SetLog[]
@@ -48,7 +60,7 @@ export type ExerciseStatus = 'done' | 'skipped' | 'logged' | 'pending'
 
 export function hasLoggedSetData(log: ExerciseLog | undefined): boolean {
   if (!log) return false
-  return log.sets.some((set) => Boolean(set.weight.trim() || set.reps.trim()))
+  return log.sets.some(hasSetLogData)
 }
 
 export function getExerciseStatus(log: ExerciseLog | undefined): ExerciseStatus {
@@ -62,6 +74,8 @@ export function getExerciseStatus(log: ExerciseLog | undefined): ExerciseStatus 
 export function formatSetSummary(log: ExerciseLog): string | null {
   const parts = log.sets
     .map((set) => {
+      const seconds = set.seconds?.trim()
+      if (seconds) return `${seconds}s`
       const weight = set.weight.trim()
       const reps = set.reps.trim()
       if (weight && reps) return `${weight}kg × ${reps}`
@@ -72,6 +86,34 @@ export function formatSetSummary(log: ExerciseLog): string | null {
     .filter(Boolean)
 
   return parts.length > 0 ? parts.join(' · ') : null
+}
+
+export type LastExerciseRecord = {
+  date: string
+  log: ExerciseLog
+}
+
+/** Most recent logged sets for an exercise on a day before `beforeDate`. */
+export function getLastExerciseRecord(
+  store: GymStore,
+  exerciseName: string,
+  beforeDate: string,
+): LastExerciseRecord | null {
+  const dates = Object.keys(store)
+    .filter((d) => d < beforeDate)
+    .sort((a, b) => b.localeCompare(a))
+
+  for (const date of dates) {
+    const dayLog = store[date]
+    if (!dayLog || dayLog.workoutKey === REST_DAY_KEY) continue
+
+    const exerciseLog = dayLog.exercises[exerciseName]
+    if (!exerciseLog || !hasLoggedSetData(exerciseLog)) continue
+
+    return { date, log: exerciseLog }
+  }
+
+  return null
 }
 
 export function getDayStatus(log: DayLog | undefined): DayStatus {
@@ -129,7 +171,7 @@ export function initExercises(key: WorkoutKey | string): Record<string, Exercise
   const result: Record<string, ExerciseLog> = {}
   workout.exercises.forEach((ex) => {
     result[ex.name] = {
-      sets: Array.from({ length: ex.sets }, () => ({ weight: '', reps: '' })),
+      sets: Array.from({ length: ex.sets }, () => createEmptySet(ex)),
       completed: false,
       skipped: false,
     }
