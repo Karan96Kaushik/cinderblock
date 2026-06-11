@@ -92,6 +92,18 @@
             ]
           },
           {
+            "name": "Chest Press Machine",
+            "sets": 3,
+            "reps": "8-12",
+            "muscles": ["Chest", "Front delts", "Triceps"],
+            "notes": [
+              "Primary chest movement.",
+              "Shoulder blades pinned back.",
+              "Control the lowering phase.",
+              "Press explosively but under control."
+            ]
+          },
+          {
             "name": "Pectoral Fly Machine",
             "sets": 3,
             "reps": "10-15",
@@ -151,6 +163,24 @@
             ]
           },
           {
+            "name": "Romanian Deadlift",
+            "sets": 3,
+            "reps": "8-12",
+            "muscles": [
+              "Hamstrings",
+              "Glutes",
+              "Lower back",
+              "Core"
+            ],
+            "notes": [
+              "Push hips backwards.",
+              "Maintain neutral spine.",
+              "Keep bar or dumbbells close to legs.",
+              "Feel a stretch in hamstrings.",
+              "Do not round lower back."
+            ]
+          },
+          {
             "name": "Seated Leg Curl",
             "sets": 3,
             "reps": "10-15",
@@ -176,6 +206,7 @@
             "reps": "12-15",
             "muscles": ["Quads"],
             "notes": [
+              "Skip if doing Romanian Deadlift.",
               "Avoid swinging.",
               "Pause at top."
             ]
@@ -233,8 +264,20 @@
             ]
           },
           {
-            "name": "Pectoral Fly Machine",
+            "name": "Chest Press Machine",
             "sets": 3,
+            "reps": "8-12",
+            "muscles": ["Chest", "Front delts", "Triceps"],
+            "notes": [
+              "Primary chest movement.",
+              "Shoulder blades pinned back.",
+              "Control the lowering phase.",
+              "Press explosively but under control."
+            ]
+          },
+          {
+            "name": "Pectoral Fly Machine",
+            "sets": 2,
             "reps": "10-15",
             "muscles": ["Chest"],
             "notes": [
@@ -284,6 +327,24 @@
             ]
           },
           {
+            "name": "Romanian Deadlift",
+            "sets": 3,
+            "reps": "8-12",
+            "muscles": [
+              "Hamstrings",
+              "Glutes",
+              "Lower back",
+              "Core"
+            ],
+            "notes": [
+              "Push hips backwards.",
+              "Maintain neutral spine.",
+              "Keep bar or dumbbells close to legs.",
+              "Feel a stretch in hamstrings.",
+              "Do not round lower back."
+            ]
+          },
+          {
             "name": "Seated Leg Curl",
             "sets": 3,
             "reps": "10-15",
@@ -308,6 +369,7 @@
             "reps": "12-15",
             "muscles": ["Quads"],
             "notes": [
+              "Skip if doing Romanian Deadlift.",
               "Smooth controlled reps."
             ]
           },
