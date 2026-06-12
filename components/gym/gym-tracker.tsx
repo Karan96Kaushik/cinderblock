@@ -12,6 +12,11 @@ import {
   type ProgramWorkoutKey,
   type WorkoutKey,
 } from '@/lib/program'
+import {
+  readExerciseVideos,
+  setExerciseVideo,
+  type ExerciseVideoStore,
+} from '@/lib/exercise-videos'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
 import { readRunLog, type RunSessionLog } from '@/lib/running'
 import { isValidDateParam, parseGymPath, paths, type GymView } from '@/lib/routes'
@@ -203,6 +208,9 @@ export function GymTracker({ onBack }: GymTrackerProps) {
   const location = useLocation()
   const today = format(new Date(), 'yyyy-MM-dd')
   const [store, setStore] = useState<GymStore>(() => readGymLog())
+  const [exerciseVideos, setExerciseVideos] = useState<ExerciseVideoStore>(() =>
+    readExerciseVideos(),
+  )
   const [runs, setRuns] = useState<RunSessionLog[]>(() => readRunLog())
 
   useEffect(() => {
@@ -319,6 +327,14 @@ export function GymTracker({ onBack }: GymTrackerProps) {
     navigate(paths.gym({ date: today, view: 'select' }))
   }
 
+  const handleSaveExerciseVideo = (exerciseName: string, url: string) => {
+    setExerciseVideos((prev) => setExerciseVideo(prev, exerciseName, url))
+  }
+
+  const handleClearExerciseVideo = (exerciseName: string) => {
+    setExerciseVideos((prev) => setExerciseVideo(prev, exerciseName, ''))
+  }
+
   const dayLog = store[selectedDate]
   const isExplore = route.view === 'explore'
   const hasFlow =
@@ -351,6 +367,9 @@ export function GymTracker({ onBack }: GymTrackerProps) {
         {view === 'explore' && (
           <WorkoutExplore
             workoutKey={route.exploreWorkoutKey}
+            exerciseVideos={exerciseVideos}
+            onSaveExerciseVideo={handleSaveExerciseVideo}
+            onClearExerciseVideo={handleClearExerciseVideo}
             onSelectWorkout={handleExploreWorkout}
             onBack={handleExploreBack}
             onStartTraining={handleExploreStartTraining}
@@ -385,6 +404,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
             workoutKey={dayLog.workoutKey}
             dayLog={dayLog}
             store={store}
+            exerciseVideos={exerciseVideos}
             onUpdateStore={handleUpdateStore}
             onBack={handleBackToSelector}
             onFinish={handleFinish}

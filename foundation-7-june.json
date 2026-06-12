@@ -96,6 +96,7 @@
             "sets": 3,
             "reps": "8-12",
             "muscles": ["Chest", "Front delts", "Triceps"],
+            "refVideo": "https://www.youtube.com/shorts/Qu7-ceCvq7w",
             "notes": [
               "Primary chest movement.",
               "Shoulder blades pinned back.",
@@ -226,6 +227,7 @@
             "sets": 3,
             "reps": "10-20",
             "muscles": ["Abs", "Hip flexors"],
+            "refVideo": "https://www.youtube.com/shorts/fbGDQGHxvHk",
             "notes": [
               "Control movement.",
               "Avoid using momentum."
@@ -336,6 +338,7 @@
               "Lower back",
               "Core"
             ],
+            "refVideo": "https://www.youtube.com/shorts/hu3jRvTc_po",
             "notes": [
               "Push hips backwards.",
               "Maintain neutral spine.",
@@ -358,6 +361,7 @@
             "sets": 3,
             "reps": "8-12 per leg",
             "muscles": ["Quads", "Glutes", "Hamstrings"],
+            "refVideo": "https://www.youtube.com/shorts/Cow3ESXmrTU",
             "notes": [
               "Use bodyweight initially if needed.",
               "Balance is more important than weight."
@@ -387,6 +391,7 @@
             "sets": 3,
             "reps": "10-20",
             "muscles": ["Abs", "Hip flexors"],
+            "refVideo": "https://www.youtube.com/shorts/fbGDQGHxvHk",
             "notes": [
               "Keep tension on abs throughout."
             ]

@@ -14,6 +14,7 @@ export type ProgramExercise = {
   /** Present on timed holds — each set logs seconds held. */
   seconds?: string
   muscles: string[]
+  refVideo?: string
   notes: string[]
 }
 

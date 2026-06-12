@@ -5,11 +5,13 @@ import { cn } from '@/lib/utils'
 import type { ExerciseLog, LastExerciseRecord, ProgramExercise, SetLog } from './gym-tracker'
 import { createEmptySet, formatSetSummary, hasSetLogData } from './gym-tracker'
 import { isTimedHoldExercise } from '@/lib/program'
+import { ExerciseRefVideoLink } from './exercise-ref-video-link'
 import { ExerciseStopwatch } from './exercise-stopwatch'
 
 interface ExerciseStepProps {
   exercise: ProgramExercise
   log: ExerciseLog | undefined
+  userVideoUrl?: string
   lastRecord?: LastExerciseRecord | null
   isActive?: boolean
   onUpdateSets: (sets: SetLog[]) => void
@@ -49,6 +51,7 @@ function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
 export function ExerciseStep({
   exercise,
   log,
+  userVideoUrl,
   lastRecord,
   isActive = true,
   onUpdateSets,
@@ -144,6 +147,15 @@ export function ExerciseStep({
             <span className="font-mono text-xs text-muted-foreground tracking-wider">SKIPPED</span>
           )}
         </div>
+
+        {(userVideoUrl || exercise.refVideo) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {userVideoUrl && <ExerciseRefVideoLink url={userVideoUrl} label="Your video" />}
+            {exercise.refVideo && (
+              <ExerciseRefVideoLink url={exercise.refVideo} label="Video" />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Set rows */}

@@ -11,15 +11,32 @@ import {
   type ProgramExercise,
   type ProgramWorkoutKey,
 } from '@/lib/program'
+import type { ExerciseVideoStore } from '@/lib/exercise-videos'
+import { ExerciseVideoField } from './exercise-video-field'
 
 interface WorkoutExploreProps {
   workoutKey?: string
+  exerciseVideos: ExerciseVideoStore
+  onSaveExerciseVideo: (exerciseName: string, url: string) => void
+  onClearExerciseVideo: (exerciseName: string) => void
   onSelectWorkout: (key: ProgramWorkoutKey) => void
   onBack: () => void
   onStartTraining: () => void
 }
 
-function ExercisePreview({ exercise, index }: { exercise: ProgramExercise; index: number }) {
+function ExercisePreview({
+  exercise,
+  index,
+  userVideoUrl,
+  onSaveUserVideo,
+  onClearUserVideo,
+}: {
+  exercise: ProgramExercise
+  index: number
+  userVideoUrl?: string
+  onSaveUserVideo: (url: string) => void
+  onClearUserVideo: () => void
+}) {
   const hasDuration = Boolean(exercise.duration)
   const target = hasDuration ? exercise.duration : exercise.reps
 
@@ -44,7 +61,13 @@ function ExercisePreview({ exercise, index }: { exercise: ProgramExercise; index
               </span>
             )}
           </div>
-
+          <ExerciseVideoField
+            exerciseName={exercise.name}
+            programRefVideo={exercise.refVideo}
+            userVideoUrl={userVideoUrl}
+            onSave={onSaveUserVideo}
+            onClear={onClearUserVideo}
+          />
         </div>
       </div>
 
@@ -82,6 +105,9 @@ function ExercisePreview({ exercise, index }: { exercise: ProgramExercise; index
 
 export function WorkoutExplore({
   workoutKey,
+  exerciseVideos,
+  onSaveExerciseVideo,
+  onClearExerciseVideo,
   onSelectWorkout,
   onBack,
   onStartTraining,
@@ -120,7 +146,14 @@ export function WorkoutExplore({
 
         <div className="px-4 space-y-3 mb-8">
           {workout.exercises.map((exercise, index) => (
-            <ExercisePreview key={exercise.name} exercise={exercise} index={index} />
+            <ExercisePreview
+              key={exercise.name}
+              exercise={exercise}
+              index={index}
+              userVideoUrl={exerciseVideos[exercise.name]}
+              onSaveUserVideo={(url) => onSaveExerciseVideo(exercise.name, url)}
+              onClearUserVideo={() => onClearExerciseVideo(exercise.name)}
+            />
           ))}
         </div>
 

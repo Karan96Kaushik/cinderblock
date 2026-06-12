@@ -10,6 +10,7 @@ import {
   type CarouselApi,
 } from '@/components/ui/carousel'
 import { getProgramWorkout, isProgramWorkoutKey, program, type ProgramWorkoutKey } from '@/lib/program'
+import type { ExerciseVideoStore } from '@/lib/exercise-videos'
 import type { DayLog, GymStore, SetLog } from './gym-tracker'
 import { getLastExerciseRecord, isExerciseAddressed } from './gym-tracker'
 import { ExerciseStep } from './exercise-step'
@@ -19,6 +20,7 @@ interface WorkoutFlowProps {
   workoutKey: ProgramWorkoutKey
   dayLog: DayLog
   store: GymStore
+  exerciseVideos: ExerciseVideoStore
   onUpdateStore: (store: GymStore) => void
   onBack: () => void
   onFinish: () => void
@@ -43,6 +45,7 @@ export function WorkoutFlow({
   workoutKey,
   dayLog,
   store,
+  exerciseVideos,
   onUpdateStore,
   onBack,
   onFinish,
@@ -348,6 +351,7 @@ export function WorkoutFlow({
                       <ExerciseStep
                         exercise={exercise}
                         log={log}
+                        userVideoUrl={exerciseVideos[exercise.name]}
                         lastRecord={getLastExerciseRecord(store, exercise.name, date)}
                         isActive={isActive}
                         onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
