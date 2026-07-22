@@ -6,10 +6,10 @@ import {
   formatPlanSummary,
   getRunTotalMinutes,
   RUN_PRESETS_MINUTES,
-  writeDefaultRunningPlan,
   type RunningPlan,
   WARMUP_PRESETS_MINUTES,
 } from '@/lib/running'
+import { notifyActivePlanChanged } from '@/lib/supabase/cloud-sync'
 
 interface RunningPlanBuilderProps {
   plan: RunningPlan
@@ -62,7 +62,7 @@ export function RunningPlanBuilder({ plan, onChange }: RunningPlanBuilderProps) 
 
   const applyPlan = (next: RunningPlan) => {
     onChange(next)
-    writeDefaultRunningPlan(next)
+    notifyActivePlanChanged(next)
   }
 
   const update = (patch: Partial<RunningPlan>) => applyPlan({ ...plan, ...patch })

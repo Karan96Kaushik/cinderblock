@@ -23,6 +23,7 @@ type SettingsContextValue = {
   setFontPreset: (preset: FontPresetKey) => void
   setTheme: (theme: ThemePresetKey) => void
   setAlwaysAwake: (enabled: boolean) => void
+  replaceSettings: (next: AppSettings) => void
   resetSettings: () => void
 }
 
@@ -56,9 +57,29 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, alwaysAwake }))
   }, [])
 
+  const replaceSettings = useCallback((next: AppSettings) => {
+    setSettings(next)
+  }, [])
+
   const value = useMemo(
-    () => ({ settings, setFontSize, setFontPreset, setTheme, setAlwaysAwake, resetSettings }),
-    [settings, setFontSize, setFontPreset, setTheme, setAlwaysAwake, resetSettings],
+    () => ({
+      settings,
+      setFontSize,
+      setFontPreset,
+      setTheme,
+      setAlwaysAwake,
+      replaceSettings,
+      resetSettings,
+    }),
+    [
+      settings,
+      setFontSize,
+      setFontPreset,
+      setTheme,
+      setAlwaysAwake,
+      replaceSettings,
+      resetSettings,
+    ],
   )
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>

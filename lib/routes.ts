@@ -9,6 +9,7 @@ export function isValidDateParam(date: string): boolean {
 
 export const paths = {
   home: () => '/',
+  login: () => '/login',
   gym: (opts?: { date?: string; view?: GymView; exploreWorkoutKey?: string }) => {
     if (opts?.view === 'explore') {
       return opts.exploreWorkoutKey

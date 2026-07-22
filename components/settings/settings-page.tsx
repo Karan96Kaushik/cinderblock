@@ -5,11 +5,13 @@ import {
   BellOff,
   ChevronDown,
   ChevronUp,
+  Cloud,
   Download,
   Footprints,
   Loader2,
   RotateCcw,
   Trash2,
+  Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
@@ -23,6 +25,7 @@ import {
   FONT_SIZES,
   LIGHT_THEMES,
   THEME_PRESETS,
+  type AppSettings,
   type FontPresetKey,
   type FontSizeKey,
   type ThemePresetKey,
@@ -46,14 +49,23 @@ import {
   type RunSessionLog,
 } from '@/lib/running'
 import { downloadTrainingLogsBackup } from '@/lib/training-backup'
+import {
+  deleteCloudBackup,
+  fetchCloudBackup,
+  listCloudBackups,
+  uploadCloudBackup,
+  type CloudBackupSummary,
+} from '@/lib/supabase/backups'
+import { restoreTrainingBackupLocally } from '@/lib/supabase/restore'
 
 interface SettingsPageProps {
   onBack: () => void
 }
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
-  const { settings, setFontSize, setFontPreset, setTheme, resetSettings } = useSettings()
-  const { token } = useAuth()
+  const { settings, setFontSize, setFontPreset, setTheme, resetSettings, replaceSettings } =
+    useSettings()
+  const { token, user, authBackend, isAuthenticated, isSupabaseEnabled } = useAuth()
   const [gymStore, setGymStore] = useState<GymStore>({})
   const [runLog, setRunLog] = useState<RunSessionLog[]>([])
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
@@ -175,7 +187,17 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
         <NotificationsSection />
 
-        <BackupSection gymDays={sortedEntries.length} runs={runLog.length} />
+        <BackupSection
+          gymDays={sortedEntries.length}
+          runs={runLog.length}
+          cloudEnabled={isSupabaseEnabled && isAuthenticated && authBackend === 'supabase'}
+          userId={user?.id ?? null}
+          onRestoredSettings={(next) => {
+            replaceSettings(next)
+            setGymStore(readGymLog())
+            setRunLog(readRunLog())
+          }}
+        />
 
         <WorkoutHistorySection
           entries={sortedEntries}
@@ -589,8 +611,43 @@ function NotificationsSection() {
   )
 }
 
-function BackupSection({ gymDays, runs }: { gymDays: number; runs: number }) {
+function BackupSection({
+  gymDays,
+  runs,
+  cloudEnabled,
+  userId,
+  onRestoredSettings,
+}: {
+  gymDays: number
+  runs: number
+  cloudEnabled: boolean
+  userId: string | null
+  onRestoredSettings: (settings: AppSettings) => void
+}) {
   const [message, setMessage] = useState<string | null>(null)
+  const [cloudBackups, setCloudBackups] = useState<CloudBackupSummary[]>([])
+  const [cloudLoading, setCloudLoading] = useState(false)
+  const [cloudBusy, setCloudBusy] = useState(false)
+  const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null)
+
+  const refreshCloud = useCallback(async () => {
+    if (!cloudEnabled || !userId) {
+      setCloudBackups([])
+      return
+    }
+    setCloudLoading(true)
+    try {
+      setCloudBackups(await listCloudBackups(userId))
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Failed to load cloud backups')
+    } finally {
+      setCloudLoading(false)
+    }
+  }, [cloudEnabled, userId])
+
+  useEffect(() => {
+    refreshCloud()
+  }, [refreshCloud])
 
   const handleDownload = () => {
     const { gymDays: days, runs: runCount, metrics } = downloadTrainingLogsBackup()
@@ -602,6 +659,60 @@ function BackupSection({ gymDays, runs }: { gymDays: number; runs: number }) {
     ]
     setMessage(`Downloaded backup (${parts.join(', ')}).`)
     Haptic.success()
+  }
+
+  const handleUpload = async () => {
+    if (!userId) return
+    setCloudBusy(true)
+    setMessage(null)
+    try {
+      const saved = await uploadCloudBackup(userId)
+      setCloudBackups((prev) => [saved, ...prev])
+      setMessage(`Uploaded cloud backup (${saved.gymDays} days · ${saved.runs} runs).`)
+      Haptic.success()
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Cloud upload failed')
+      Haptic.error()
+    } finally {
+      setCloudBusy(false)
+    }
+  }
+
+  const handleRestore = async (backupId: string) => {
+    if (!userId) return
+    setCloudBusy(true)
+    setMessage(null)
+    try {
+      const payload = await fetchCloudBackup(userId, backupId)
+      const result = restoreTrainingBackupLocally(payload)
+      onRestoredSettings(result.settings)
+      setConfirmRestoreId(null)
+      setMessage(
+        `Restored backup (${result.gymDays} days · ${result.runs} runs · ${result.metrics} metrics).`,
+      )
+      Haptic.success()
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Restore failed')
+      Haptic.error()
+    } finally {
+      setCloudBusy(false)
+    }
+  }
+
+  const handleDeleteCloud = async (backupId: string) => {
+    if (!userId) return
+    setCloudBusy(true)
+    try {
+      await deleteCloudBackup(userId, backupId)
+      setCloudBackups((prev) => prev.filter((b) => b.id !== backupId))
+      if (confirmRestoreId === backupId) setConfirmRestoreId(null)
+      Haptic.warning()
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Delete failed')
+      Haptic.error()
+    } finally {
+      setCloudBusy(false)
+    }
   }
 
   return (
@@ -627,6 +738,91 @@ function BackupSection({ gymDays, runs }: { gymDays: number; runs: number }) {
             ? 'No logs yet — download will still produce an empty backup file.'
             : `${gymDays} workout ${gymDays === 1 ? 'day' : 'days'} · ${runs} ${runs === 1 ? 'run' : 'runs'} included`}
         </p>
+
+        {cloudEnabled && (
+          <div className="pt-3 border-t border-border/50 space-y-3">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-neon-orange" />
+              <p className="font-mono text-[10px] uppercase tracking-wider text-neon-orange">
+                Supabase cloud backups
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={cloudBusy}
+              data-haptic="selection"
+              className="w-full min-h-[44px] rounded-lg border border-border font-mono text-xs font-bold tracking-widest uppercase text-foreground hover:border-neon-orange/40 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {cloudBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Upload current data
+            </button>
+
+            {cloudLoading ? (
+              <p className="font-mono text-xs text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-3 h-3 animate-spin" /> Loading cloud backups…
+              </p>
+            ) : cloudBackups.length === 0 ? (
+              <p className="font-mono text-xs text-muted-foreground">No cloud backups yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {cloudBackups.map((backup) => (
+                  <div
+                    key={backup.id}
+                    className="rounded-lg border border-border bg-card/30 p-3 space-y-2"
+                  >
+                    <div>
+                      <p className="font-mono text-xs text-foreground">
+                        {backup.label ?? 'Backup'}
+                      </p>
+                      <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                        {format(new Date(backup.createdAt), 'MMM d yyyy · h:mm a')} ·{' '}
+                        {backup.gymDays} days · {backup.runs} runs
+                      </p>
+                    </div>
+
+                    {confirmRestoreId === backup.id ? (
+                      <ConfirmRow
+                        label="Restore this backup over local data?"
+                        onConfirm={() => handleRestore(backup.id)}
+                        onCancel={() => setConfirmRestoreId(null)}
+                      />
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={cloudBusy}
+                          onClick={() => setConfirmRestoreId(backup.id)}
+                          data-haptic="warning"
+                          className="flex-1 min-h-[36px] rounded-md border border-neon-orange/40 font-mono text-[10px] uppercase tracking-wider text-neon-orange"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
+                          disabled={cloudBusy}
+                          onClick={() => handleDeleteCloud(backup.id)}
+                          data-haptic="warning"
+                          className="min-h-[36px] px-3 rounded-md border border-neon-red/30 font-mono text-[10px] uppercase tracking-wider text-neon-red"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!cloudEnabled && (
+          <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+            Sign in with Supabase to upload and restore cloud backups (settings, active plan, and
+            training logs).
+          </p>
+        )}
 
         {message && <p className="font-mono text-xs text-neon-yellow">{message}</p>}
       </div>

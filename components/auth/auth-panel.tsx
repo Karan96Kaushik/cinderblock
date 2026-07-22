@@ -1,14 +1,17 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Cloud, CloudOff, Loader2, LogIn, LogOut, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
 import { useAuth } from '@/hooks/use-auth'
+import { paths } from '@/lib/routes'
 
 export function AuthPanel() {
   const {
     user,
     isAuthenticated,
-    isSyncEnabled,
+    isCloudEnabled,
+    isSupabaseEnabled,
     isSyncing,
     error,
     login,
@@ -50,11 +53,11 @@ export function AuthPanel() {
 
   const displayError = localError ?? error
 
-  if (!isSyncEnabled) {
+  if (!isCloudEnabled) {
     return (
       <div
         className="hidden sm:flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground border border-border px-2 py-1 rounded"
-        title="Set VITE_API_URL to enable cloud sync"
+        title="Set VITE_SUPABASE_URL / VITE_API_URL to enable cloud sync"
       >
         <CloudOff className="w-3 h-3" />
         LOCAL ONLY
@@ -81,7 +84,9 @@ export function AuthPanel() {
             SYNCED
           </button>
           <button
-            onClick={logout}
+            onClick={() => {
+              logout().catch(() => undefined)
+            }}
             data-haptic="selection"
             className="flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-neon-orange border border-border px-2 py-1 rounded transition-colors min-h-[32px]"
           >
@@ -190,8 +195,18 @@ export function AuthPanel() {
             </form>
 
             <p className="font-mono text-[10px] text-muted-foreground mt-3 leading-relaxed">
-              When signed in, workouts and body metrics sync to the cloud. Offline changes merge on login.
+              {isSupabaseEnabled
+                ? 'When signed in, settings, your active run plan, and backups sync via Supabase.'
+                : 'When signed in, workouts and body metrics sync to the cloud. Offline changes merge on login.'}
             </p>
+
+            <Link
+              to={paths.login()}
+              onClick={() => setOpen(false)}
+              className="mt-3 block font-mono text-[10px] text-neon-orange hover:underline"
+            >
+              Open full sign-in screen →
+            </Link>
           </div>
         </>
       )}

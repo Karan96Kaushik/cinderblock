@@ -18,6 +18,7 @@ import {
   type RunningPlan,
 } from '@/lib/running'
 import { parseRunningPath, paths } from '@/lib/routes'
+import { ACTIVE_PLAN_EVENT } from '@/lib/supabase/cloud-sync'
 import { RunningFlow } from './running-flow'
 import { RunningPlanBuilder } from './running-plan-builder'
 
@@ -47,6 +48,15 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
     setActiveSession(readActiveRunSession())
     setConfirmDiscard(false)
   }, [view])
+
+  useEffect(() => {
+    const onPlan = (event: Event) => {
+      const next = (event as CustomEvent<RunningPlan>).detail
+      if (next) setPlan(next)
+    }
+    window.addEventListener(ACTIVE_PLAN_EVENT, onPlan)
+    return () => window.removeEventListener(ACTIVE_PLAN_EVENT, onPlan)
+  }, [])
 
   const canResume =
     activeSession?.started &&
