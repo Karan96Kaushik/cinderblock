@@ -8,6 +8,8 @@ import {
 } from './api-client'
 import { withGymTimestamps, withMetricsTimestamps } from './merge'
 import { STORAGE_KEYS } from './types'
+import { notifyTrainingLogChanged } from './events'
+import { isSupabaseConfigured } from '@/utils/supabase'
 
 export function readGymLog(): GymStore {
   try {
@@ -30,21 +32,24 @@ export function readBodyMetrics(): MetricsStore {
   }
 }
 
-export function writeGymLog(store: GymStore) {
+export function writeGymLog(store: GymStore, opts?: { silent?: boolean }) {
   const stamped = withGymTimestamps(store as Record<string, Record<string, unknown>>)
   localStorage.setItem(STORAGE_KEYS.gymLog, JSON.stringify(stamped))
+  if (!opts?.silent) notifyTrainingLogChanged()
 }
 
-export function writeBodyMetrics(store: MetricsStore) {
+export function writeBodyMetrics(store: MetricsStore, opts?: { silent?: boolean }) {
   const sorted = [...store].sort((a, b) => b.date.localeCompare(a.date))
   const stamped = withMetricsTimestamps(sorted as Record<string, unknown>[])
   localStorage.setItem(STORAGE_KEYS.bodyMetrics, JSON.stringify(stamped))
+  if (!opts?.silent) notifyTrainingLogChanged()
 }
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 
-export function scheduleRemotePush(token: string, gymLog: GymStore, bodyMetrics: MetricsStore) {
-  if (!isSyncAvailable()) return
+/** Legacy API Gateway push — never used when Supabase is the auth backend. */
+export function scheduleRemotePush(token: string, _gymLog: GymStore, _bodyMetrics: MetricsStore) {
+  if (!isSyncAvailable() || isSupabaseConfigured()) return
 
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(async () => {
@@ -88,14 +93,14 @@ export async function pullAndMerge(token: string): Promise<{ gymLog: GymStore; b
 
 export function saveGymLog(store: GymStore, token?: string | null) {
   writeGymLog(store)
-  if (token) {
+  if (token && !isSupabaseConfigured()) {
     scheduleRemotePush(token, store, readBodyMetrics())
   }
 }
 
 export function saveBodyMetrics(store: MetricsStore, token?: string | null) {
   writeBodyMetrics(store)
-  if (token) {
+  if (token && !isSupabaseConfigured()) {
     scheduleRemotePush(token, readGymLog(), store)
   }
 }

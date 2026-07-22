@@ -18,6 +18,7 @@ import {
   type ExerciseVideoStore,
 } from '@/lib/exercise-videos'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
+import { TRAINING_LOG_EVENT } from '@/lib/sync/events'
 import { readRunLog, type RunSessionLog } from '@/lib/running'
 import { isValidDateParam, parseGymPath, paths, type GymView } from '@/lib/routes'
 import { WorkoutCalendar } from './workout-calendar'
@@ -214,13 +215,20 @@ export function GymTracker({ onBack }: GymTrackerProps) {
   const [runs, setRuns] = useState<RunSessionLog[]>(() => readRunLog())
 
   useEffect(() => {
-    const refreshRuns = () => setRuns(readRunLog())
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refreshRuns()
+    const refresh = () => {
+      setStore(readGymLog())
+      setRuns(readRunLog())
     }
-    refreshRuns()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    refresh()
     document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener(TRAINING_LOG_EVENT, refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener(TRAINING_LOG_EVENT, refresh)
+    }
   }, [])
 
   const route = parseGymPath(location.pathname)

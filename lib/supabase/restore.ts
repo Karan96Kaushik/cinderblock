@@ -4,6 +4,7 @@ import type { TrainingLogsBackup } from '@/lib/training-backup'
 import { writeSettings, type AppSettings } from '@/lib/settings'
 import { writeRunLog, type RunSessionLog } from '@/lib/running'
 import { writeBodyMetrics, writeGymLog } from '@/lib/sync/storage'
+import { bindLocalDataToAccount } from './account-scope'
 import { notifyActivePlanChanged } from './cloud-sync'
 
 export type RestoreResult = {
@@ -14,12 +15,20 @@ export type RestoreResult = {
 }
 
 /** Apply a training backup to local storage (settings, plan, logs). */
-export function restoreTrainingBackupLocally(backup: TrainingLogsBackup): RestoreResult {
+export function restoreTrainingBackupLocally(
+  backup: TrainingLogsBackup,
+  userId?: string,
+): RestoreResult {
+  // Notify so SupabaseCloudBridge can push user_settings (replaceSettings stays silent for React state)
   writeSettings(backup.settings)
   notifyActivePlanChanged(backup.defaultRunningPlan)
   writeGymLog(backup.gymLog as GymStore)
   writeRunLog(backup.runLog as RunSessionLog[])
   writeBodyMetrics(backup.bodyMetrics as MetricsStore)
+
+  if (userId) {
+    bindLocalDataToAccount(userId)
+  }
 
   return {
     settings: backup.settings,

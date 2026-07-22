@@ -1,4 +1,5 @@
 import { applyTheme, normalizeThemeKey, type ThemePresetKey } from './themes'
+import { notifySettingsChanged } from '@/lib/sync/events'
 
 export type FontSizeKey = 'sm' | 'md' | 'lg' | 'xl'
 
@@ -47,7 +48,7 @@ export const FONT_PRESETS: Record<
   },
 }
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   fontSize: 'md',
   fontPreset: 'cinderblock',
   theme: 'orange',
@@ -71,8 +72,9 @@ export function readSettings(): AppSettings {
   }
 }
 
-export function writeSettings(settings: AppSettings) {
+export function writeSettings(settings: AppSettings, opts?: { silent?: boolean }) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+  if (!opts?.silent) notifySettingsChanged(settings)
 }
 
 export function applySettings(settings: AppSettings) {

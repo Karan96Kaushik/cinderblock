@@ -17,9 +17,17 @@ export type UserActivePlanRow = {
 export type UserBackupRow = {
   id: string
   user_id: string
+  device_id: string
   payload: TrainingLogsBackup
   label: string | null
   created_at: string
+}
+
+export type UserTrainingLogRow = {
+  user_id: string
+  device_id: string
+  payload: TrainingLogsBackup
+  updated_at: string
 }
 
 export type Database = {
@@ -56,6 +64,7 @@ export type Database = {
         Insert: {
           id?: string
           user_id: string
+          device_id: string
           payload: TrainingLogsBackup
           label?: string | null
           created_at?: string
@@ -63,6 +72,21 @@ export type Database = {
         Update: {
           payload?: TrainingLogsBackup
           label?: string | null
+          device_id?: string
+        }
+        Relationships: []
+      }
+      user_training_logs: {
+        Row: UserTrainingLogRow
+        Insert: {
+          user_id: string
+          device_id: string
+          payload: TrainingLogsBackup
+          updated_at?: string
+        }
+        Update: {
+          payload?: TrainingLogsBackup
+          updated_at?: string
         }
         Relationships: []
       }

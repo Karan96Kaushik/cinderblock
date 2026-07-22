@@ -15,6 +15,7 @@ import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
 import { readGymLog } from '@/lib/sync/storage'
+import { TRAINING_LOG_EVENT } from '@/lib/sync/events'
 import {
   formatPlanSummary,
   formatRunSummary,
@@ -178,7 +179,11 @@ export function HomePage({
       if (document.visibilityState === 'visible') refresh()
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener(TRAINING_LOG_EVENT, refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener(TRAINING_LOG_EVENT, refresh)
+    }
   }, [])
 
   const todayLabel = format(new Date(), 'EEEE, MMMM d')

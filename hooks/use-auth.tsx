@@ -11,11 +11,19 @@ import type { Session } from '@supabase/supabase-js'
 import { isSyncAvailable, loginUser, registerUser } from '@/lib/sync/api-client'
 import { pullAndMerge } from '@/lib/sync/storage'
 import { STORAGE_KEYS, type AuthUser } from '@/lib/sync/types'
-import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client'
+import { supabase, isSupabaseConfigured } from '@/utils/supabase'
+import { clearBoundAccountId } from '@/lib/supabase/account-scope'
 import { pullAndMergeCloudConfig } from '@/lib/supabase/cloud-sync'
 
 export type AuthBackend = 'supabase' | 'api' | null
 
+function formatAuthError(err: { message?: string; code?: string } | Error | null): string {
+  const message = err instanceof Error ? err.message : (err?.message ?? 'Authentication failed')
+  if (/PGRST125|Invalid path/i.test(message)) {
+    return 'Invalid Supabase URL. Use the project URL only (https://xxxx.supabase.co), not .../rest/v1.'
+  }
+  return message
+}
 type AuthContextValue = {
   user: AuthUser | null
   token: string | null
@@ -87,7 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function init() {
       if (isSupabaseConfigured()) {
-        const supabase = getSupabase()
         const { data } = await supabase.auth.getSession()
         if (cancelled) return
 
@@ -166,11 +173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const backend = preferredBackend()
 
     if (backend === 'supabase') {
-      const { data, error: authError } = await getSupabase().auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (authError) throw new Error(authError.message)
+      if (authError) throw new Error(formatAuthError(authError))
       if (!data.session) throw new Error('Sign in failed')
 
       const nextUser = userFromSession(data.session)
@@ -180,6 +187,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsSyncing(true)
       try {
         await pullAndMergeCloudConfig(nextUser.id)
+      } catch (err) {
+        // Auth succeeded — surface sync failure without failing the login
+        console.error('Cloud sync after login failed:', err)
+        setError(err instanceof Error ? err.message : 'Cloud sync failed')
       } finally {
         setIsSyncing(false)
       }
@@ -195,6 +206,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsSyncing(true)
       try {
         await pullAndMerge(result.token)
+      } catch (err) {
+        console.error('Cloud sync after login failed:', err)
+        setError(err instanceof Error ? err.message : 'Cloud sync failed')
       } finally {
         setIsSyncing(false)
       }
@@ -209,15 +223,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const backend = preferredBackend()
 
     if (backend === 'supabase') {
-      const { data, error: authError } = await getSupabase().auth.signUp({
+      const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
       })
-      if (authError) throw new Error(authError.message)
+      if (authError) throw new Error(formatAuthError(authError))
+
+      // Email confirmation enabled: user exists but no session yet
       if (!data.session) {
-        throw new Error(
-          'Account created. Check your email to confirm, then sign in.',
-        )
+        if (data.user) {
+          throw new Error('Account created. Check your email to confirm, then sign in.')
+        }
+        throw new Error('Sign up failed')
       }
 
       const nextUser = userFromSession(data.session)
@@ -227,6 +244,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsSyncing(true)
       try {
         await pullAndMergeCloudConfig(nextUser.id)
+      } catch (err) {
+        console.error('Cloud sync after register failed:', err)
+        setError(err instanceof Error ? err.message : 'Cloud sync failed')
       } finally {
         setIsSyncing(false)
       }
@@ -242,6 +262,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsSyncing(true)
       try {
         await pullAndMerge(result.token)
+      } catch (err) {
+        console.error('Cloud sync after register failed:', err)
+        setError(err instanceof Error ? err.message : 'Cloud sync failed')
       } finally {
         setIsSyncing(false)
       }
@@ -253,9 +276,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     if (authBackend === 'supabase' && isSupabaseConfigured()) {
-      await getSupabase().auth.signOut()
+      await supabase.auth.signOut()
     }
     clearApiAuth()
+    clearBoundAccountId()
     setUser(null)
     setToken(null)
     setAuthBackend(null)

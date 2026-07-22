@@ -5,24 +5,16 @@ import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
 import { useAuth } from '@/hooks/use-auth'
 import { paths } from '@/lib/routes'
+import {
+  clearLoginSkipped,
+  markLoginSkipped,
+} from '@/lib/auth/login-skip'
 
-const SKIP_KEY = 'cinderblock_login_skipped'
-
-export function hasSkippedLogin(): boolean {
-  try {
-    return sessionStorage.getItem(SKIP_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function markLoginSkipped() {
-  try {
-    sessionStorage.setItem(SKIP_KEY, '1')
-  } catch {
-    // ignore
-  }
-}
+export {
+  hasSkippedLogin,
+  markLoginSkipped,
+  clearLoginSkipped,
+} from '@/lib/auth/login-skip'
 
 /** Full-screen optional sign-in. App works without an account. */
 export function LoginScreen() {
@@ -44,8 +36,14 @@ export function LoginScreen() {
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
+  // Intentional visit to /login — clear skip cache so redirects work after leaving
+  useEffect(() => {
+    clearLoginSkipped()
+  }, [])
+
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
+      clearLoginSkipped()
       navigate(paths.home(), { replace: true })
     }
   }, [isAuthenticated, isLoading, navigate])
@@ -68,6 +66,7 @@ export function LoginScreen() {
       } else {
         await register(email, password)
       }
+      clearLoginSkipped()
       Haptic.success()
       navigate(paths.home(), { replace: true })
     } catch (err) {
@@ -115,7 +114,7 @@ export function LoginScreen() {
             <Cloud className="w-5 h-5 text-neon-orange shrink-0 mt-0.5" />
             <p className="font-mono text-xs text-muted-foreground leading-relaxed">
               {isSupabaseEnabled
-                ? 'Sign in to sync settings, your active run plan, and training backups across devices. You can keep using the app locally without an account.'
+                ? 'Sign in to sync settings and your active run plan, and keep backups private to this device and account. You can keep using the app locally without an account.'
                 : isCloudEnabled
                   ? 'Sign in to sync workouts and body metrics to the cloud.'
                   : 'Cloud sync is not configured. Continue locally — data stays on this device.'}

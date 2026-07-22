@@ -4,28 +4,33 @@ import { useSettings } from '@/hooks/use-settings'
 import {
   ACTIVE_PLAN_EVENT,
   pushCloudActivePlan,
-  pushCloudSettings,
 } from '@/lib/supabase/cloud-sync'
+import { scheduleSettingsBackup } from '@/lib/supabase/settings-sync'
+import {
+  TRAINING_LOG_EVENT,
+  scheduleTrainingLogBackup,
+} from '@/lib/supabase/training-log-sync'
+import { SETTINGS_EVENT } from '@/lib/sync/events'
 import type { RunningPlan } from '@/lib/running'
 import type { AppSettings } from '@/lib/settings'
 
 /**
- * Keeps local settings + active running plan in sync with Supabase when signed in.
+ * Keeps local settings, active plan, and training logs in sync with Supabase when signed in.
  * Mount inside both AuthProvider and SettingsProvider.
  */
 export function SupabaseCloudBridge() {
   const { user, authBackend, isAuthenticated, isSyncing } = useAuth()
-  const { settings, replaceSettings } = useSettings()
-  const skipSettingsPush = useRef(false)
+  const { replaceSettings } = useSettings()
   const readyToPush = useRef(false)
-  const settingsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSettings = useRef<AppSettings | null>(null)
   const planTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastUserId = useRef<string | null>(null)
 
-  // After login sync settles, allow pushes
+  // After login sync settles, allow pushes and flush any queued settings
   useEffect(() => {
     if (!isAuthenticated || authBackend !== 'supabase' || !user) {
       readyToPush.current = false
+      pendingSettings.current = null
       lastUserId.current = null
       return
     }
@@ -33,12 +38,16 @@ export function SupabaseCloudBridge() {
     if (lastUserId.current !== user.id) {
       lastUserId.current = user.id
       readyToPush.current = false
+      pendingSettings.current = null
     }
 
     if (!isSyncing) {
-      // Small delay so hydrate event from pull can apply first
       const t = setTimeout(() => {
         readyToPush.current = true
+        if (pendingSettings.current) {
+          scheduleSettingsBackup(user.id, pendingSettings.current)
+          pendingSettings.current = null
+        }
       }, 100)
       return () => clearTimeout(t)
     }
@@ -49,7 +58,6 @@ export function SupabaseCloudBridge() {
     const onHydrate = (event: Event) => {
       const detail = (event as CustomEvent<{ settings?: AppSettings }>).detail
       if (detail?.settings) {
-        skipSettingsPush.current = true
         replaceSettings(detail.settings)
       }
     }
@@ -57,26 +65,23 @@ export function SupabaseCloudBridge() {
     return () => window.removeEventListener('cinderblock:hydrate-settings', onHydrate)
   }, [replaceSettings])
 
-  // Push settings changes (debounced)
+  // Push settings whenever local settings change
   useEffect(() => {
-    if (skipSettingsPush.current) {
-      skipSettingsPush.current = false
-      return
-    }
-    if (!readyToPush.current) return
     if (!isAuthenticated || authBackend !== 'supabase' || !user) return
 
-    if (settingsTimer.current) clearTimeout(settingsTimer.current)
-    settingsTimer.current = setTimeout(() => {
-      pushCloudSettings(user.id, settings).catch((err) => {
-        console.error('Supabase settings push failed:', err)
-      })
-    }, 600)
-
-    return () => {
-      if (settingsTimer.current) clearTimeout(settingsTimer.current)
+    const onSettings = (event: Event) => {
+      const next = (event as CustomEvent<AppSettings>).detail
+      if (!next) return
+      if (!readyToPush.current) {
+        pendingSettings.current = next
+        return
+      }
+      scheduleSettingsBackup(user.id, next)
     }
-  }, [settings, isAuthenticated, authBackend, user])
+
+    window.addEventListener(SETTINGS_EVENT, onSettings)
+    return () => window.removeEventListener(SETTINGS_EVENT, onSettings)
+  }, [isAuthenticated, authBackend, user])
 
   // Push active plan changes from RunningPlanBuilder / restore
   useEffect(() => {
@@ -99,6 +104,19 @@ export function SupabaseCloudBridge() {
       window.removeEventListener(ACTIVE_PLAN_EVENT, onPlan)
       if (planTimer.current) clearTimeout(planTimer.current)
     }
+  }, [isAuthenticated, authBackend, user])
+
+  // Backup gym / run / metrics training logs whenever they change
+  useEffect(() => {
+    if (!isAuthenticated || authBackend !== 'supabase' || !user) return
+
+    const onTrainingLog = () => {
+      if (!readyToPush.current) return
+      scheduleTrainingLogBackup(user.id)
+    }
+
+    window.addEventListener(TRAINING_LOG_EVENT, onTrainingLog)
+    return () => window.removeEventListener(TRAINING_LOG_EVENT, onTrainingLog)
   }, [isAuthenticated, authBackend, user])
 
   return null

@@ -1,4 +1,5 @@
 import { endOfWeek, parseISO, startOfWeek } from 'date-fns'
+import { notifyTrainingLogChanged } from '@/lib/sync/events'
 
 export type RunningPhase = 'warmup' | 'run' | 'cooldown'
 
@@ -229,8 +230,9 @@ export function readRunLog(): RunSessionLog[] {
   }
 }
 
-export function writeRunLog(runs: RunSessionLog[]): void {
+export function writeRunLog(runs: RunSessionLog[], opts?: { silent?: boolean }): void {
   localStorage.setItem(RUN_LOG_STORAGE_KEY, JSON.stringify(runs))
+  if (!opts?.silent) notifyTrainingLogChanged()
 }
 
 export function saveRunSession(

@@ -19,6 +19,7 @@ import {
 } from '@/lib/running'
 import { parseRunningPath, paths } from '@/lib/routes'
 import { ACTIVE_PLAN_EVENT } from '@/lib/supabase/cloud-sync'
+import { TRAINING_LOG_EVENT } from '@/lib/sync/events'
 import { RunningFlow } from './running-flow'
 import { RunningPlanBuilder } from './running-plan-builder'
 
@@ -48,6 +49,12 @@ export function RunningTracker({ onBack }: RunningTrackerProps) {
     setActiveSession(readActiveRunSession())
     setConfirmDiscard(false)
   }, [view])
+
+  useEffect(() => {
+    const refreshRuns = () => setRecentRuns(readRunLog().slice(0, 3))
+    window.addEventListener(TRAINING_LOG_EVENT, refreshRuns)
+    return () => window.removeEventListener(TRAINING_LOG_EVENT, refreshRuns)
+  }, [])
 
   useEffect(() => {
     const onPlan = (event: Event) => {

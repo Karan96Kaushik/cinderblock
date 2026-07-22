@@ -684,7 +684,7 @@ function BackupSection({
     setMessage(null)
     try {
       const payload = await fetchCloudBackup(userId, backupId)
-      const result = restoreTrainingBackupLocally(payload)
+      const result = restoreTrainingBackupLocally(payload, userId)
       onRestoredSettings(result.settings)
       setConfirmRestoreId(null)
       setMessage(
@@ -744,10 +744,14 @@ function BackupSection({
             <div className="flex items-center gap-2">
               <Cloud className="w-4 h-4 text-neon-orange" />
               <p className="font-mono text-[10px] uppercase tracking-wider text-neon-orange">
-                Supabase cloud backups
+                Cloud backups · this device + account
               </p>
             </div>
 
+            <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+              Backups stay private to your signed-in account on this device. Other accounts and other
+              devices cannot see or restore them.
+            </p>
             <button
               type="button"
               onClick={handleUpload}

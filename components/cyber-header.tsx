@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   ChevronRight,
   Dumbbell,
@@ -23,8 +24,14 @@ interface CyberHeaderProps {
 export function CyberHeader({ onTrainingClick, onRunningClick, onMetricsClick, onSettingsClick }: CyberHeaderProps) {
   const [open, setOpen] = useState(false)
   const drawerId = useId()
+  const location = useLocation()
 
   const close = useCallback(() => setOpen(false), [])
+
+  // Close drawer on route changes (e.g. Sign in → /login)
+  useEffect(() => {
+    close()
+  }, [location.pathname, close])
 
   useEffect(() => {
     if (!open) return
@@ -223,7 +230,7 @@ export function CyberHeader({ onTrainingClick, onRunningClick, onMetricsClick, o
                     open && 'animate-in fade-in slide-in-from-top-2 duration-500 delay-300 fill-mode-both',
                   )}
                 >
-                  <AuthPanel />
+                  <AuthPanel onNavigate={close} />
                   <span className="font-mono text-[10px] text-muted-foreground/70 tracking-wider">
                     FOUNDATION STRENGTH · v2.0.26
                   </span>

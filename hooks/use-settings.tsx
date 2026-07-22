@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -31,10 +32,12 @@ const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => readSettings())
+  const silentWrite = useRef(false)
 
   useEffect(() => {
     applySettings(settings)
-    writeSettings(settings)
+    writeSettings(settings, { silent: silentWrite.current })
+    silentWrite.current = false
   }, [settings])
 
   const setFontSize = useCallback((fontSize: FontSizeKey) => {
@@ -58,6 +61,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const replaceSettings = useCallback((next: AppSettings) => {
+    // Hydrate from server — don't echo a cloud push for this write
+    silentWrite.current = true
     setSettings(next)
   }, [])
 

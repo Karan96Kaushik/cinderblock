@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { SettingsProvider } from '@/hooks/use-settings'
 import { HapticInit } from '@/components/haptic-init'
@@ -10,18 +11,18 @@ import { RunningTracker } from '@/components/running/running-tracker'
 import { SettingsPage } from '@/components/settings/settings-page'
 import { LoginScreen, hasSkippedLogin } from '@/components/auth/login-screen'
 import { paths } from '@/lib/routes'
-import { useEffect } from 'react'
 
 function OptionalLoginRedirect() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAuthenticated, isSupabaseEnabled, isLoading } = useAuth()
 
   useEffect(() => {
     if (isLoading) return
     if (!isSupabaseEnabled || isAuthenticated || hasSkippedLogin()) return
-    if (window.location.pathname === paths.login()) return
+    if (location.pathname === paths.login()) return
     navigate(paths.login(), { replace: true })
-  }, [isAuthenticated, isSupabaseEnabled, isLoading, navigate])
+  }, [isAuthenticated, isSupabaseEnabled, isLoading, navigate, location.pathname])
 
   return null
 }

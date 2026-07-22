@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
 import { useAuth } from '@/hooks/use-auth'
 import { readBodyMetrics, saveBodyMetrics } from '@/lib/sync/storage'
+import { TRAINING_LOG_EVENT } from '@/lib/sync/events'
 
 export type MetricEntry = {
   date: string
@@ -83,7 +84,10 @@ export function MetricsTracker({ onBack }: MetricsTrackerProps) {
   )
 
   useEffect(() => {
-    setStore(loadStore())
+    const refresh = () => setStore(loadStore())
+    refresh()
+    window.addEventListener(TRAINING_LOG_EVENT, refresh)
+    return () => window.removeEventListener(TRAINING_LOG_EVENT, refresh)
   }, [])
 
   useEffect(() => {
