@@ -1,6 +1,7 @@
 import type { APIGatewayProxyResultV2, LambdaFunctionURLEvent } from 'aws-lambda'
 import { createClient } from '@supabase/supabase-js'
 
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
