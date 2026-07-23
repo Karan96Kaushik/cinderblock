@@ -10,6 +10,7 @@ import {
   Footprints,
   Loader2,
   RotateCcw,
+  Server,
   Smartphone,
   Trash2,
   Upload,
@@ -64,6 +65,10 @@ import {
   type RemoteDeviceTrainingLog,
 } from '@/lib/supabase/training-log-sync'
 import { getDeviceId } from '@/lib/device-id'
+import {
+  invokeAmplifyTest,
+  isAmplifyTestConfigured,
+} from '@/lib/amplify/test-function'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -193,6 +198,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         />
 
         <NotificationsSection />
+
+        <AmplifyTestSection
+          cloudEnabled={isSupabaseEnabled && isAuthenticated && authBackend === 'supabase'}
+        />
 
         <BackupSection
           gymDays={sortedEntries.length}
@@ -625,6 +634,82 @@ function NotificationsSection() {
 function shortDeviceId(id: string): string {
   if (id.length <= 14) return id
   return `${id.slice(0, 10)}…${id.slice(-4)}`
+}
+
+function AmplifyTestSection({ cloudEnabled }: { cloudEnabled: boolean }) {
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const configured = isAmplifyTestConfigured()
+
+  const handleTest = async () => {
+    setLoading(true)
+    setMessage(null)
+    setError(null)
+    try {
+      const result = await invokeAmplifyTest()
+      if (!result.ok) {
+        setError(result.error ?? 'Amplify test failed')
+        Haptic.error()
+        return
+      }
+      const parts = [
+        result.email ?? result.userId ?? 'user',
+        result.hasSettingsRow ? 'settings row found' : 'no settings row yet',
+      ]
+      setMessage(`${result.message ?? 'OK'} · ${parts.join(' · ')}`)
+      Haptic.success()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Amplify test failed')
+      Haptic.error()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <SectionCard title="Amplify">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <Server className="w-5 h-5 text-neon-orange shrink-0 mt-0.5" />
+          <div>
+            <p className="font-sans text-sm font-bold text-foreground">Server test</p>
+            <p className="font-mono text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              Calls an AWS Amplify Lambda with your Supabase session. The function identifies you
+              and reads the database with the secret key.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={loading || !cloudEnabled || !configured}
+          data-haptic="selection"
+          className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 bg-neon-orange/10 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          Test
+        </button>
+
+        {!cloudEnabled && (
+          <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+            Sign in with Supabase to run the Amplify test.
+          </p>
+        )}
+
+        {cloudEnabled && !configured && (
+          <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+            Deploy or run <span className="text-foreground">npx ampx sandbox</span> so{' '}
+            <span className="text-foreground">amplify_outputs.json</span> includes the function URL.
+          </p>
+        )}
+
+        {error && <p className="font-mono text-xs text-neon-red">{error}</p>}
+        {message && <p className="font-mono text-xs text-neon-yellow">{message}</p>}
+      </div>
+    </SectionCard>
+  )
 }
 
 function BackupSection({

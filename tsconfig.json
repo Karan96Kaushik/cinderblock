@@ -18,5 +18,14 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["src", "components", "hooks", "lib", "utils", "scripts", "vite.config.ts"]
+  "include": [
+    "src",
+    "components",
+    "hooks",
+    "lib",
+    "utils",
+    "scripts",
+    "vite.config.ts",
+    "amplify_outputs.json"
+  ]
 }

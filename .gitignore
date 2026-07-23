@@ -19,6 +19,10 @@ dist/
 .env
 .env.local
 
+# Amplify Gen 2
+.amplify/
+amplify/functions/**/node_modules/
+
 # Lambda sync API
 lambda/node_modules/
 lambda/dist/
