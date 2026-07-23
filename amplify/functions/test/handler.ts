@@ -2,10 +2,12 @@ import type { APIGatewayProxyResultV2, Context, LambdaFunctionURLEvent } from 'a
 import { createClient } from '@supabase/supabase-js'
 import { log } from './logger'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+/**
+ * Do not set Access-Control-* here. Function URL CORS in amplify/backend.ts
+ * owns those headers. Duplicating them produces invalid combined values like
+ * "*, https://www.cinderblock.thebear.buzz".
+ */
+const responseHeaders = {
   'Content-Type': 'application/json',
 }
 
@@ -38,7 +40,7 @@ function normalizeSupabaseUrl(raw: string | undefined): string {
 function json(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResultV2 {
   return {
     statusCode,
-    headers: corsHeaders,
+    headers: responseHeaders,
     body: JSON.stringify(body),
   }
 }
@@ -86,9 +88,11 @@ export const handler = async (
   })
 
   try {
+    // OPTIONS preflight is answered by Function URL CORS (function not invoked
+    // when CORS is configured). Keep a no-op fallback without CORS headers.
     if (method === 'OPTIONS') {
       log.info('request.done', { ...base, statusCode: 204, durationMs: Date.now() - startedAt })
-      return { statusCode: 204, headers: corsHeaders }
+      return { statusCode: 204, headers: responseHeaders }
     }
 
     if (method !== 'POST') {
