@@ -150,7 +150,7 @@ export function ExerciseStep({
 
         {(userVideoUrl || exercise.refVideo) && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {userVideoUrl && <ExerciseRefVideoLink url={userVideoUrl} label="Your video" />}
+            {userVideoUrl && <ExerciseRefVideoLink url={userVideoUrl} label="Reference" />}
             {exercise.refVideo && (
               <ExerciseRefVideoLink url={exercise.refVideo} label="Video" />
             )}

@@ -10,6 +10,7 @@ import {
   Footprints,
   Loader2,
   RotateCcw,
+  Smartphone,
   Trash2,
   Upload,
 } from 'lucide-react'
@@ -57,6 +58,12 @@ import {
   type CloudBackupSummary,
 } from '@/lib/supabase/backups'
 import { restoreTrainingBackupLocally } from '@/lib/supabase/restore'
+import {
+  importTrainingLogFromDevice,
+  listAccountTrainingLogDevices,
+  type RemoteDeviceTrainingLog,
+} from '@/lib/supabase/training-log-sync'
+import { getDeviceId } from '@/lib/device-id'
 
 interface SettingsPageProps {
   onBack: () => void
@@ -194,6 +201,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           userId={user?.id ?? null}
           onRestoredSettings={(next) => {
             replaceSettings(next)
+            setGymStore(readGymLog())
+            setRunLog(readRunLog())
+          }}
+          onLocalLogsChanged={() => {
             setGymStore(readGymLog())
             setRunLog(readRunLog())
           }}
@@ -611,37 +622,61 @@ function NotificationsSection() {
   )
 }
 
+function shortDeviceId(id: string): string {
+  if (id.length <= 14) return id
+  return `${id.slice(0, 10)}…${id.slice(-4)}`
+}
+
 function BackupSection({
   gymDays,
   runs,
   cloudEnabled,
   userId,
   onRestoredSettings,
+  onLocalLogsChanged,
 }: {
   gymDays: number
   runs: number
   cloudEnabled: boolean
   userId: string | null
   onRestoredSettings: (settings: AppSettings) => void
+  onLocalLogsChanged: () => void
 }) {
   const [message, setMessage] = useState<string | null>(null)
   const [cloudBackups, setCloudBackups] = useState<CloudBackupSummary[]>([])
   const [cloudLoading, setCloudLoading] = useState(false)
   const [cloudBusy, setCloudBusy] = useState(false)
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null)
+  const [devices, setDevices] = useState<RemoteDeviceTrainingLog[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(false)
+  const [confirmImportDeviceId, setConfirmImportDeviceId] = useState<string | null>(null)
+  const currentDeviceId = useMemo(() => getDeviceId(), [])
+
+  const otherDevices = useMemo(
+    () => devices.filter((d) => !d.isCurrent),
+    [devices],
+  )
 
   const refreshCloud = useCallback(async () => {
     if (!cloudEnabled || !userId) {
       setCloudBackups([])
+      setDevices([])
       return
     }
     setCloudLoading(true)
+    setDevicesLoading(true)
     try {
-      setCloudBackups(await listCloudBackups(userId))
+      const [backups, deviceLogs] = await Promise.all([
+        listCloudBackups(userId),
+        listAccountTrainingLogDevices(userId),
+      ])
+      setCloudBackups(backups)
+      setDevices(deviceLogs)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Failed to load cloud backups')
+      setMessage(err instanceof Error ? err.message : 'Failed to load cloud data')
     } finally {
       setCloudLoading(false)
+      setDevicesLoading(false)
     }
   }, [cloudEnabled, userId])
 
@@ -715,6 +750,27 @@ function BackupSection({
     }
   }
 
+  const handleImportDevice = async (sourceDeviceId: string) => {
+    if (!userId) return
+    setCloudBusy(true)
+    setMessage(null)
+    try {
+      const result = await importTrainingLogFromDevice(userId, sourceDeviceId)
+      onLocalLogsChanged()
+      setConfirmImportDeviceId(null)
+      await refreshCloud()
+      setMessage(
+        `Imported & merged from ${shortDeviceId(sourceDeviceId)} (${result.gymDays} days · ${result.runs} runs · ${result.metrics} metrics).`,
+      )
+      Haptic.success()
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Import failed')
+      Haptic.error()
+    } finally {
+      setCloudBusy(false)
+    }
+  }
+
   return (
     <SectionCard title="Backup">
       <div className="space-y-4">
@@ -749,9 +805,14 @@ function BackupSection({
             </div>
 
             <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
-              Backups stay private to your signed-in account on this device. Other accounts and other
-              devices cannot see or restore them.
+              Snapshot backups stay private to your signed-in account on this device. Live training
+              logs sync per device — import from another device below if needed.
             </p>
+
+            <p className="font-mono text-[10px] text-muted-foreground">
+              This device · <span className="text-foreground">{shortDeviceId(currentDeviceId)}</span>
+            </p>
+
             <button
               type="button"
               onClick={handleUpload}
@@ -818,13 +879,74 @@ function BackupSection({
                 ))}
               </div>
             )}
+
+            <div className="pt-3 border-t border-border/50 space-y-3">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-neon-yellow" />
+                <p className="font-mono text-[10px] uppercase tracking-wider text-neon-yellow">
+                  Import from another device
+                </p>
+              </div>
+
+              <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+                Pull gym, run, and metrics logs from another device on this account and merge them
+                into this device. Newer entries win on conflict.
+              </p>
+
+              {devicesLoading ? (
+                <p className="font-mono text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading devices…
+                </p>
+              ) : otherDevices.length === 0 ? (
+                <p className="font-mono text-xs text-muted-foreground">
+                  No other devices with training logs on this account yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {otherDevices.map((device) => (
+                    <div
+                      key={device.deviceId}
+                      className="rounded-lg border border-border bg-card/30 p-3 space-y-2"
+                    >
+                      <div>
+                        <p className="font-mono text-xs text-foreground" title={device.deviceId}>
+                          {shortDeviceId(device.deviceId)}
+                        </p>
+                        <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                          Updated {format(new Date(device.updatedAt), 'MMM d yyyy · h:mm a')} ·{' '}
+                          {device.gymDays} days · {device.runs} runs · {device.metrics} metrics
+                        </p>
+                      </div>
+
+                      {confirmImportDeviceId === device.deviceId ? (
+                        <ConfirmRow
+                          label="Merge this device’s logs into this device?"
+                          onConfirm={() => handleImportDevice(device.deviceId)}
+                          onCancel={() => setConfirmImportDeviceId(null)}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={cloudBusy}
+                          onClick={() => setConfirmImportDeviceId(device.deviceId)}
+                          data-haptic="selection"
+                          className="w-full min-h-[36px] rounded-md border border-neon-yellow/40 font-mono text-[10px] uppercase tracking-wider text-neon-yellow hover:bg-neon-yellow/10 transition-colors disabled:opacity-50"
+                        >
+                          Import & merge
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {!cloudEnabled && (
           <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
-            Sign in with Supabase to upload and restore cloud backups (settings, active plan, and
-            training logs).
+            Sign in with Supabase to upload and restore cloud backups, and import training logs from
+            your other devices.
           </p>
         )}
 

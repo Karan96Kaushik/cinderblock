@@ -26,3 +26,6 @@ lambda/function.zip
 lambda/.aws-sam/
 
 certificates
+
+# Script logs (e.g. scripts/test-cerebras-program.ts)
+/logs/

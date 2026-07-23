@@ -35,8 +35,10 @@ function mergeRunLogs(local: RunSessionLog[], remote: RunSessionLog[]): RunSessi
   return [...byId.values()].sort((a, b) => b.completedAt - a.completedAt)
 }
 
-export async function fetchRemoteTrainingLog(userId: string): Promise<TrainingLogPayload | null> {
-  const deviceId = getDeviceId()
+export async function fetchRemoteTrainingLog(
+  userId: string,
+  deviceId: string = getDeviceId(),
+): Promise<TrainingLogPayload | null> {
   const { data, error } = await supabase
     .from('user_training_logs')
     .select('payload, updated_at')
@@ -47,6 +49,97 @@ export async function fetchRemoteTrainingLog(userId: string): Promise<TrainingLo
   if (error) throw new Error(error.message)
   if (!data) return null
   return data.payload as TrainingLogPayload
+}
+
+export type RemoteDeviceTrainingLog = {
+  deviceId: string
+  updatedAt: string
+  gymDays: number
+  runs: number
+  metrics: number
+  isCurrent: boolean
+}
+
+/** List training-log rows for this account across devices (current device included). */
+export async function listAccountTrainingLogDevices(
+  userId: string,
+): Promise<RemoteDeviceTrainingLog[]> {
+  const currentDeviceId = getDeviceId()
+  const { data, error } = await supabase
+    .from('user_training_logs')
+    .select('device_id, updated_at, payload')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => {
+    const payload = row.payload as TrainingLogPayload
+    return {
+      deviceId: row.device_id,
+      updatedAt: row.updated_at,
+      gymDays: Object.keys(payload.gymLog ?? {}).length,
+      runs: payload.runLog?.length ?? 0,
+      metrics: payload.bodyMetrics?.length ?? 0,
+      isCurrent: row.device_id === currentDeviceId,
+    }
+  })
+}
+
+/**
+ * Merge another device's cloud training logs into this device's local + cloud copy.
+ * Does not change app settings or the active run plan.
+ */
+export async function importTrainingLogFromDevice(
+  userId: string,
+  sourceDeviceId: string,
+): Promise<{ gymDays: number; runs: number; metrics: number }> {
+  if (!localDataBelongsToAccount(userId)) {
+    throw new Error('Local data belongs to a different account.')
+  }
+
+  const currentDeviceId = getDeviceId()
+  if (sourceDeviceId === currentDeviceId) {
+    throw new Error('That is already this device.')
+  }
+
+  const remote = await fetchRemoteTrainingLog(userId, sourceDeviceId)
+  if (!remote) {
+    throw new Error('No training logs found for that device.')
+  }
+
+  const localGym = readGymLog()
+  const localMetrics = readBodyMetrics()
+  const localRuns = readRunLog()
+
+  const mergedGym = mergeGymLogs(
+    localGym as Record<string, { updatedAt?: number }>,
+    (remote.gymLog ?? {}) as Record<string, { updatedAt?: number }>,
+  ) as GymStore
+
+  const mergedMetrics = mergeBodyMetrics(
+    localMetrics as Array<{ updatedAt?: number; date?: string }>,
+    (remote.bodyMetrics ?? []) as Array<{ updatedAt?: number; date?: string }>,
+  ) as unknown as MetricsStore
+
+  const mergedRuns = mergeRunLogs(localRuns, remote.runLog ?? [])
+
+  writeGymLog(mergedGym, { silent: true })
+  writeBodyMetrics(mergedMetrics, { silent: true })
+  writeRunLog(mergedRuns, { silent: true })
+  notifyTrainingLogChanged()
+
+  await upsertRemoteTrainingLog(userId, {
+    gymLog: mergedGym,
+    runLog: mergedRuns,
+    bodyMetrics: mergedMetrics,
+  })
+
+  return {
+    gymDays: Object.keys(mergedGym).length,
+    runs: mergedRuns.length,
+    metrics: mergedMetrics.length,
+  }
 }
 
 export async function upsertRemoteTrainingLog(

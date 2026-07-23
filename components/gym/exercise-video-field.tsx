@@ -48,7 +48,7 @@ export function ExerciseVideoField({
       <div className="flex items-center gap-1.5 mb-2">
         <Link2 className="w-3 h-3 text-muted-foreground" />
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          Your video link
+          Video
         </span>
       </div>
 
@@ -101,7 +101,7 @@ export function ExerciseVideoField({
 
       {userVideoUrl && (
         <div className="mt-2.5">
-          <ExerciseRefVideoLink url={userVideoUrl} label="Your video" />
+          <ExerciseRefVideoLink url={userVideoUrl} label="Reference" />
         </div>
       )}
 
