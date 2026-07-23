@@ -33,3 +33,5 @@ certificates
 
 # Script logs (e.g. scripts/test-cerebras-program.ts)
 /logs/
+
+package-lock.json
