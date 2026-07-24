@@ -14,6 +14,7 @@ import { STORAGE_KEYS, type AuthUser } from '@/lib/sync/types'
 import { supabase, isSupabaseConfigured } from '@/utils/supabase'
 import { clearBoundAccountId } from '@/lib/supabase/account-scope'
 import { pullAndMergeCloudConfig } from '@/lib/supabase/cloud-sync'
+import { paths } from '@/lib/routes'
 
 export type AuthBackend = 'supabase' | 'api' | null
 
@@ -35,11 +36,15 @@ type AuthContextValue = {
   isSupabaseEnabled: boolean
   /** Either cloud backend is available for optional sign-in */
   isCloudEnabled: boolean
+  /** User opened the app from a password-recovery email link */
+  isPasswordRecovery: boolean
   isLoading: boolean
   isSyncing: boolean
   error: string | null
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string) => Promise<void>
+  requestPasswordReset: (email: string) => Promise<void>
+  updatePassword: (password: string) => Promise<void>
   logout: () => Promise<void>
   syncNow: () => Promise<void>
   clearError: () => void
@@ -87,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authBackend, setAuthBackend] = useState<AuthBackend>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -112,8 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
           if (cancelled) return
+
+          if (event === 'PASSWORD_RECOVERY') {
+            setIsPasswordRecovery(true)
+          }
+
           if (session) {
             setUser(userFromSession(session))
             setToken(session.access_token)
@@ -122,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null)
             setToken(null)
             setAuthBackend(null)
+            setIsPasswordRecovery(false)
           }
         })
         unsubscribe = () => listener.subscription.unsubscribe()
@@ -274,6 +286,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error('Cloud sync is not configured')
   }, [])
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    setError(null)
+    if (!isSupabaseConfigured()) {
+      throw new Error('Password reset requires Supabase')
+    }
+
+    const redirectTo = `${window.location.origin}${paths.login()}`
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    })
+    if (authError) throw new Error(formatAuthError(authError))
+  }, [])
+
+  const updatePassword = useCallback(async (password: string) => {
+    setError(null)
+    if (!isSupabaseConfigured()) {
+      throw new Error('Password reset requires Supabase')
+    }
+
+    const { data, error: authError } = await supabase.auth.updateUser({ password })
+    if (authError) throw new Error(formatAuthError(authError))
+    if (!data.user) throw new Error('Could not update password')
+
+    setIsPasswordRecovery(false)
+
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (sessionData.session) {
+      const nextUser = userFromSession(sessionData.session)
+      setUser(nextUser)
+      setToken(sessionData.session.access_token)
+      setAuthBackend('supabase')
+      setIsSyncing(true)
+      try {
+        await pullAndMergeCloudConfig(nextUser.id)
+      } catch (err) {
+        console.error('Cloud sync after password update failed:', err)
+        setError(err instanceof Error ? err.message : 'Cloud sync failed')
+      } finally {
+        setIsSyncing(false)
+      }
+    }
+  }, [])
+
   const logout = useCallback(async () => {
     if (authBackend === 'supabase' && isSupabaseConfigured()) {
       await supabase.auth.signOut()
@@ -283,6 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setToken(null)
     setAuthBackend(null)
+    setIsPasswordRecovery(false)
     setError(null)
   }, [authBackend])
 
@@ -295,11 +351,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSyncEnabled: isSyncAvailable(),
       isSupabaseEnabled: isSupabaseConfigured(),
       isCloudEnabled: isSupabaseConfigured() || isSyncAvailable(),
+      isPasswordRecovery,
       isLoading,
       isSyncing,
       error,
       login,
       register,
+      requestPasswordReset,
+      updatePassword,
       logout,
       syncNow,
       clearError: () => setError(null),
@@ -308,11 +367,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       authBackend,
+      isPasswordRecovery,
       isLoading,
       isSyncing,
       error,
       login,
       register,
+      requestPasswordReset,
+      updatePassword,
       logout,
       syncNow,
     ],
