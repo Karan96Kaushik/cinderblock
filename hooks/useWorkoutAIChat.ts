@@ -84,7 +84,7 @@ function slugProgramId(name: string): string {
 
 export type UseWorkoutAIChatOptions = {
   mode: AiChatMode
-  /** Existing program for edit/explain — converted to plaintext on first load. */
+  /** Existing program for edit/discuss — converted to plaintext on first load. */
   currentProgram?: ProgramDocument | null
   userId: string | null
   sessionId?: string
@@ -108,7 +108,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     if (existing) return existing
 
     const initialDraft =
-      (mode === 'edit' || mode === 'explain') && currentProgram
+      (mode === 'edit' || mode === 'discuss') && currentProgram
         ? programToPlaintext(currentProgram)
         : ''
 

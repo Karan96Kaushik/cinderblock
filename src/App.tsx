@@ -32,7 +32,11 @@ function AiChatRoute() {
   const navigate = useNavigate()
   const { mode } = useParams<{ mode: string }>()
   const resolved: AiChatModeParam =
-    mode === 'create' || mode === 'edit' || mode === 'explain' ? mode : 'edit'
+    mode === 'create' || mode === 'edit' || mode === 'discuss'
+      ? mode
+      : mode === 'explain'
+        ? 'discuss'
+        : 'edit'
 
   return (
     <AiChatPage
@@ -71,6 +75,7 @@ function AppRoutes() {
               onOpenSettings={() => navigate(paths.settings())}
               onCreateWithAi={() => navigate(paths.aiChat('create'))}
               onEditWithAi={() => navigate(paths.aiChat('edit'))}
+              onDiscussWithAi={() => navigate(paths.aiChat('discuss'))}
             />
           }
         />

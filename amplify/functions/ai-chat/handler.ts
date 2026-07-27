@@ -132,9 +132,11 @@ async function streamHandler(
     }
 
     const mode: AiChatMode =
-      body?.mode === 'edit' || body?.mode === 'explain' || body?.mode === 'create'
+      body?.mode === 'edit' || body?.mode === 'discuss' || body?.mode === 'create'
         ? body.mode
-        : 'create'
+        : body?.mode === 'explain'
+          ? 'discuss'
+          : 'create'
 
     const recentTurns = Array.isArray(body?.recentTurns)
       ? body!.recentTurns!

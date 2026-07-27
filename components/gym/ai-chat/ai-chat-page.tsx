@@ -5,6 +5,7 @@ import { useActiveProgram } from '@/hooks/use-active-program'
 import { useWorkoutAIChat, type AiChatUiMessage } from '@/hooks/useWorkoutAIChat'
 import type { AiChatMode } from '@/lib/ai-chat'
 import { CyberGrid } from '@/components/cyber-grid'
+import { ChatMarkdown } from '@/components/gym/ai-chat/chat-markdown'
 import { paths } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 
@@ -21,13 +22,19 @@ function Bubble({ message }: { message: AiChatUiMessage }) {
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm whitespace-pre-wrap leading-relaxed',
+          'max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed',
           isUser
-            ? 'bg-neon-orange text-primary-foreground font-sans'
+            ? 'bg-neon-orange text-primary-foreground font-sans whitespace-pre-wrap'
             : 'home-surface border border-border text-foreground font-sans',
         )}
       >
-        {message.content || (message.streaming ? '…' : '')}
+        {isUser ? (
+          message.content
+        ) : message.content ? (
+          <ChatMarkdown content={message.content} />
+        ) : message.streaming ? (
+          '…'
+        ) : null}
         {message.streaming && (
           <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-neon-orange/80 animate-pulse" />
         )}
@@ -42,6 +49,7 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
   const [input, setInput] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const chat = useWorkoutAIChat({
     mode,
@@ -53,8 +61,19 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chat.messages, chat.isStreaming])
 
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [input])
+
   const title =
-    mode === 'create' ? 'Create with AI' : mode === 'edit' ? 'Edit with AI' : 'Explain with AI'
+    mode === 'create'
+      ? 'Create with AI'
+      : mode === 'edit'
+        ? 'Edit with AI'
+        : 'Discuss with AI'
 
   const placeholder =
     mode === 'create'
@@ -189,11 +208,12 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
                   ? 'Tell me what kind of program you want.'
                   : mode === 'edit'
                     ? 'Your current plan is loaded. Say what to change.'
-                    : 'Ask questions about your current plan.'}
+                    : 'Ask questions about your current plan — form, progressions, swaps, whatever.'}
               </p>
               <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-                When the draft looks right, hit Save. I’ll convert it into the app’s program
-                format.
+                {mode === 'discuss'
+                  ? 'I’ll answer using your active program. If you want changes, ask and I’ll confirm before rewriting.'
+                  : 'When the draft looks right, hit Save. I’ll convert it into the app’s program format.'}
               </p>
             </div>
           )}
@@ -245,8 +265,9 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
       </main>
 
       <footer className="relative z-10 shrink-0 border-t border-border/60 bg-background/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
-          <input
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -257,13 +278,15 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
             }}
             disabled={chat.isStreaming || chat.isSaving}
             placeholder={placeholder}
-            className="flex-1 min-h-[48px] rounded-lg border border-border bg-background px-3 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-neon-orange/60"
+            rows={1}
+            aria-label="Message"
+            className="flex-1 min-h-[48px] max-h-40 resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-3 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-neon-orange/60 leading-relaxed"
           />
           {chat.isStreaming ? (
             <button
               type="button"
               onClick={chat.cancelStream}
-              className="min-h-[48px] min-w-[48px] rounded-lg border border-border text-muted-foreground font-mono text-xs"
+              className="min-h-[48px] min-w-[48px] rounded-lg border border-border text-muted-foreground font-mono text-xs shrink-0"
             >
               Stop
             </button>
@@ -273,13 +296,16 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
               onClick={() => void handleSend()}
               disabled={!input.trim() || chat.isSaving}
               data-haptic="selection"
-              className="min-h-[48px] min-w-[48px] rounded-lg bg-neon-orange text-primary-foreground flex items-center justify-center disabled:opacity-40"
+              className="min-h-[48px] min-w-[48px] rounded-lg bg-neon-orange text-primary-foreground flex items-center justify-center disabled:opacity-40 shrink-0"
               aria-label="Send"
             >
               <Send className="w-4 h-4" />
             </button>
           )}
         </div>
+        <p className="max-w-2xl mx-auto px-4 pb-2 font-mono text-[10px] text-muted-foreground">
+          Enter to send · Shift+Enter for new line
+        </p>
       </footer>
     </div>
   )

@@ -14,7 +14,7 @@ export type ChatTurn = {
   content: string
 }
 
-export type AiChatMode = 'explain' | 'edit' | 'create'
+export type AiChatMode = 'discuss' | 'edit' | 'create'
 
 export type ParsedAssistantPayload = {
   /**
