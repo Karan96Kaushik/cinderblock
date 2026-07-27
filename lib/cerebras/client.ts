@@ -9,6 +9,9 @@ import type {
 const DEFAULT_BASE_URL = 'https://api.cerebras.ai/v1'
 const DEFAULT_MODEL = 'gpt-oss-120b'
 
+/** Amplify Gen 2 injects this until `ampx sandbox secret set` resolves SSM. */
+const AMPLIFY_SSM_PLACEHOLDER = '<value will be resolved during runtime>'
+
 export class CerebrasApiError extends Error {
   readonly status: number
   readonly body: unknown
@@ -26,11 +29,12 @@ function readEnvApiKey(): string | undefined {
 }
 
 function resolveApiKey(explicit?: string): string {
-  const apiKey = explicit ?? readEnvApiKey()
-  if (!apiKey) {
+  const apiKey = (explicit ?? readEnvApiKey())?.trim()
+  if (!apiKey || apiKey === AMPLIFY_SSM_PLACEHOLDER) {
     throw new Error(
-      'Cerebras API key is missing. Run `export CEREBRAS_API_KEY=...` before starting, ' +
-        'or pass `apiKey` explicitly when creating the client.',
+      'Cerebras API key is missing or unresolved. For local scripts, `export CEREBRAS_API_KEY=...`. ' +
+        'For Amplify Lambdas, run `npx ampx sandbox secret set CEREBRAS_API_KEY` ' +
+        '(shell export alone does not populate function secrets).',
     )
   }
   return apiKey

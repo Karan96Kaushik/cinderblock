@@ -11,6 +11,7 @@ import { AI_CHAT_SCHEMA_VERSION } from '../../../lib/ai-chat/parse-sentinels'
 import { json, jsonHeaders, parseJsonBody } from '../_shared/http'
 import { createLogger } from '../_shared/logger'
 import { checkRateLimit } from '../_shared/rateLimit'
+import { readResolvedSecret } from '../_shared/secrets'
 import { verifySupabaseAuth } from '../_shared/verifySupabaseAuth'
 
 const log = createLogger('ai-extract-json')
@@ -141,10 +142,11 @@ export const handler = async (
       return json(400, { ok: false, error: 'plaintextDraft is required' })
     }
 
-    if (!process.env.CEREBRAS_API_KEY?.trim()) {
+    if (!readResolvedSecret('CEREBRAS_API_KEY')) {
       return json(500, {
         ok: false,
-        error: 'Server misconfigured: set Amplify secret CEREBRAS_API_KEY',
+        error:
+          'Server misconfigured: Amplify secret CEREBRAS_API_KEY is missing. Run `npx ampx sandbox secret set CEREBRAS_API_KEY` (shell export is not enough).',
       })
     }
 

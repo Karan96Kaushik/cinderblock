@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, Loader2, Send, Sparkles } from 'lucide-react'
+import { ChevronLeft, Loader2, Send, Sparkles, Undo2 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useActiveProgram } from '@/hooks/use-active-program'
 import { useWorkoutAIChat, type AiChatUiMessage } from '@/hooks/useWorkoutAIChat'
@@ -120,9 +120,9 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
+    <div className="h-dvh bg-background relative overflow-hidden flex flex-col">
       <CyberGrid />
-      <header className="relative z-10 border-b border-border/60 bg-background/80 backdrop-blur-sm">
+      <header className="relative z-10 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
             type="button"
@@ -138,25 +138,43 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
               {program.name}
             </p>
           </div>
-          <button
-            type="button"
-            disabled={!chat.canSave || saveSuccess}
-            onClick={handleSave}
-            data-haptic="success"
-            className={cn(
-              'min-h-[40px] px-4 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-opacity',
-              chat.canSave && !saveSuccess
-                ? 'bg-neon-orange text-primary-foreground'
-                : 'bg-muted text-muted-foreground cursor-not-allowed',
-            )}
-          >
-            {chat.isSaving ? 'Saving…' : saveSuccess ? 'Saved' : 'Save'}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={!chat.canRevert}
+              onClick={chat.revertLastChanges}
+              data-haptic="selection"
+              title="Revert last changes"
+              className={cn(
+                'min-h-[40px] px-3 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5',
+                chat.canRevert
+                  ? 'border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40'
+                  : 'border border-border/40 text-muted-foreground/40 cursor-not-allowed',
+              )}
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+              Revert
+            </button>
+            <button
+              type="button"
+              disabled={!chat.canSave || saveSuccess}
+              onClick={handleSave}
+              data-haptic="success"
+              className={cn(
+                'min-h-[40px] px-4 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-opacity',
+                chat.canSave && !saveSuccess
+                  ? 'bg-neon-orange text-primary-foreground'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed',
+              )}
+            >
+              {chat.isSaving ? 'Saving…' : saveSuccess ? 'Saved' : 'Save'}
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-36">
+      <main className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
           {!chat.configured && (
             <div className="rounded-lg border border-neon-yellow/40 bg-neon-yellow/5 px-3 py-2 font-mono text-xs text-neon-yellow">
               Deploy Amplify (`npx ampx sandbox`) and set CEREBRAS_API_KEY secret to enable AI
@@ -226,7 +244,7 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
         </div>
       </main>
 
-      <footer className="relative z-10 border-t border-border/60 bg-background/90 backdrop-blur-sm">
+      <footer className="relative z-10 shrink-0 border-t border-border/60 bg-background/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2">
           <input
             value={input}

@@ -17,18 +17,31 @@ export type ChatTurn = {
 export type AiChatMode = 'explain' | 'edit' | 'create'
 
 export type ParsedAssistantPayload = {
-  /** User-visible text with sentinel blocks removed. */
+  /**
+   * User-visible text. Summary / PLAN_READY markers are removed.
+   * Plan body stays visible (only the <<PLAN>> tags are stripped).
+   */
   displayText: string
   runningSummary: string | null
   plaintextDraft: string | null
   planReady: boolean
 }
 
+export type ParseAssistantOptions = {
+  /** While streaming, hide incomplete trailing sentinel blocks that aren't closed yet. */
+  streaming?: boolean
+}
+
 /**
  * Extract SUMMARY / PLAN / PLAN_READY sentinels from an assistant message.
- * Sentinels are stripped from the text shown in the chat UI.
+ * - SUMMARY is bookkeeping → removed from UI entirely
+ * - PLAN body is the main content → kept in the bubble; tags stripped
+ * - PLAN_READY is a soft signal → removed from UI
  */
-export function parseAssistantPayload(raw: string): ParsedAssistantPayload {
+export function parseAssistantPayload(
+  raw: string,
+  opts: ParseAssistantOptions = {},
+): ParsedAssistantPayload {
   let working = raw
   let runningSummary: string | null = null
   let plaintextDraft: string | null = null
@@ -43,12 +56,17 @@ export function parseAssistantPayload(raw: string): ParsedAssistantPayload {
   const planMatch = working.match(/<<PLAN>>([\s\S]*?)<<END_PLAN>>/)
   if (planMatch) {
     plaintextDraft = planMatch[1]?.trim() || null
-    working = working.replace(planMatch[0], '')
+    // Keep the plan body visible — only drop the sentinel tags.
+    working = working.replace(planMatch[0], `\n${planMatch[1] ?? ''}\n`)
   }
 
   if (working.includes(PLAN_READY_TOKEN)) {
     planReady = true
     working = working.split(PLAN_READY_TOKEN).join('')
+  }
+
+  if (opts.streaming) {
+    working = scrubIncompleteSentinels(working)
   }
 
   return {
@@ -57,6 +75,32 @@ export function parseAssistantPayload(raw: string): ParsedAssistantPayload {
     plaintextDraft,
     planReady,
   }
+}
+
+/**
+ * Hide half-written sentinel regions so the user doesn't see raw <<TAGS>>
+ * flicker while tokens arrive.
+ */
+function scrubIncompleteSentinels(text: string): string {
+  let working = text
+
+  // Open SUMMARY without END yet → hide from the tag to the end (it's trailing bookkeeping).
+  const summaryOpen = working.lastIndexOf(SUMMARY_START)
+  if (summaryOpen !== -1 && !working.includes(SUMMARY_END, summaryOpen)) {
+    working = working.slice(0, summaryOpen)
+  }
+
+  // Open PLAN without END yet → drop the opening tag, keep the body that's streaming in.
+  const planOpen = working.lastIndexOf(PLAN_START)
+  if (planOpen !== -1 && !working.includes(PLAN_END, planOpen)) {
+    working =
+      working.slice(0, planOpen) + working.slice(planOpen + PLAN_START.length)
+  }
+
+  // Hide a partial tag being typed at the end, e.g. "<<PLA" or "<<SUM".
+  working = working.replace(/<<(?:PLAN(?:_READY)?)?$|<<(?:END_)?(?:PLAN|SUMMARY)?$/i, '')
+
+  return working
 }
 
 /**

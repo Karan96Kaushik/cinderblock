@@ -14,6 +14,8 @@ export type {
   AiChatMode,
   ChatRole,
   ChatTurn,
+  ParseAssistantOptions,
   ParsedAssistantPayload,
 } from './parse-sentinels'
 export { programToPlaintext } from './plaintext-plan'
+

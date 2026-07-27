@@ -144,9 +144,15 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     validatorErrors?: ProgramIssue[]
     message: string
   } | null>(null)
+  const [checkpoint, setCheckpoint] = useState<{
+    session: AiChatSessionState
+    messages: AiChatUiMessage[]
+  } | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
   const sentInitialContextRef = useRef(false)
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
 
   useEffect(() => {
     persistSession(session)
@@ -170,6 +176,12 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
       setNeedsReauth(false)
       setHardFailure(null)
       setReportSentId(null)
+
+      // Snapshot pre-turn state so the user can revert this exchange.
+      const undoSnapshot = {
+        session: structuredClone(session),
+        messages: messagesRef.current.map((message) => ({ ...message })),
+      }
 
       const userTurn: ChatTurn = { role: 'user', content: newMessage }
       const nextHistory = [...session.chatHistoryFull, userTurn]
@@ -204,7 +216,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
           signal: controller.signal,
           onDelta: (chunk) => {
             assembled += chunk
-            const live = parseAssistantPayload(assembled).displayText
+            const live = parseAssistantPayload(assembled, { streaming: true }).displayText
             setMessages((prev) => {
               const copy = [...prev]
               const last = copy[copy.length - 1]
@@ -250,6 +262,8 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
           }
           return copy
         })
+
+        setCheckpoint(undoSnapshot)
       } catch (err) {
         if (err instanceof AuthRequiredError) {
           setNeedsReauth(true)
@@ -263,6 +277,11 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
           const copy = [...prev]
           const last = copy[copy.length - 1]
           if (last?.role === 'assistant' && last.streaming) {
+            copy.pop()
+          }
+          // Also drop the user bubble if the assistant never completed.
+          const maybeUser = copy[copy.length - 1]
+          if (maybeUser?.role === 'user' && maybeUser.content === newMessage) {
             copy.pop()
           }
           return copy
@@ -390,6 +409,18 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     abortRef.current?.abort()
   }, [])
 
+  const canRevert = Boolean(checkpoint) && !isStreaming && !isSaving
+
+  const revertLastChanges = useCallback(() => {
+    if (!checkpoint || isStreaming || isSaving) return
+    setSession(checkpoint.session)
+    setMessages(checkpoint.messages)
+    setCheckpoint(null)
+    setError(null)
+    setHardFailure(null)
+    setReportSentId(null)
+  }, [checkpoint, isSaving, isStreaming])
+
   return {
     session,
     messages,
@@ -401,10 +432,12 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     hardFailure,
     reportSentId,
     canSave,
+    canRevert,
     sendMessage,
     saveDraft,
     reportIssue,
     cancelStream,
+    revertLastChanges,
     configured: isAiChatConfigured(),
   }
 }
