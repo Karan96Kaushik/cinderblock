@@ -35,7 +35,6 @@ import {
 import {
   getSelectableWorkoutKeys,
   getWorkoutLabel,
-  program,
   REST_DAY_KEY,
   type WorkoutKey,
 } from '@/lib/program'

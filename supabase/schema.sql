@@ -8,10 +8,10 @@ create table if not exists public.user_settings (
   updated_at timestamptz not null default now()
 );
 
--- User's active running plan (warmup · run · cooldown)
+-- User's active plan: gym program (default foundation-7-june) + running preset
 create table if not exists public.user_active_plan (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  plan jsonb not null default '{"warmupMinutes":5,"runMinutes":30,"cooldownMinutes":5}'::jsonb,
+  plan jsonb not null default '{"programId":"foundation-7-june","running":{"warmupMinutes":5,"runMinutes":30,"cooldownMinutes":5}}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
@@ -113,3 +113,22 @@ create policy "Users can update own training logs"
 create policy "Users can delete own training logs"
   on public.user_training_logs for delete
   using (auth.uid() = user_id);
+
+-- AI workout chat hard-failure reports (written by Amplify report-issue Lambda with service role)
+create table if not exists public.ai_chat_reports (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  chat_history jsonb,
+  plaintext_draft text,
+  running_summary text,
+  json_attempts jsonb,
+  validator_errors jsonb,
+  schema_version text
+);
+
+create index if not exists ai_chat_reports_user_created_at_idx
+  on public.ai_chat_reports (user_id, created_at desc);
+
+alter table public.ai_chat_reports enable row level security;
+-- No authenticated-user insert/select policies — service role only.

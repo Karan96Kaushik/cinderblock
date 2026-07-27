@@ -7,6 +7,12 @@ import {
   type RunningPlan,
 } from '@/lib/running'
 import {
+  applyActivePlanProgram,
+  buildActivePlanPayload,
+  createDefaultActivePlan,
+  type ActivePlanPayload,
+} from '@/lib/active-plan'
+import {
   bindLocalDataToAccount,
   localDataBelongsToAccount,
   readBoundAccountId,
@@ -30,7 +36,7 @@ export function notifyActivePlanChanged(plan: RunningPlan) {
 
 export type CloudConfigPull = {
   settings: AppSettings | null
-  plan: RunningPlan | null
+  plan: ActivePlanPayload | null
 }
 
 /** Drop local training logs so they cannot leak into another account's backups. */
@@ -52,12 +58,15 @@ function clearForeignSettingsAndPlan() {
       }),
     )
   }
-  notifyActivePlanChanged(DEFAULT_RUNNING_PLAN)
+  const defaults = createDefaultActivePlan(DEFAULT_RUNNING_PLAN)
+  applyActivePlanProgram(defaults)
+  notifyActivePlanChanged(defaults.running)
 }
 
 /**
- * Pull configuration, active plan, and training logs from Supabase.
- * Never seeds another account's remote from this device's local data.
+ * Pull configuration, active plan (foundation program + running), and training logs.
+ * New users with no remote row are seeded with the foundation-7-june plan.
+ * Never seeds another account's remote from this device's local data when switching.
  */
 export async function pullAndMergeCloudConfig(userId: string): Promise<CloudConfigPull> {
   const previousAccount = readBoundAccountId()
@@ -70,7 +79,10 @@ export async function pullAndMergeCloudConfig(userId: string): Promise<CloudConf
   }
 
   const localSettings = readSettings()
-  const localPlan = readDefaultRunningPlan()
+  const localRunning = readDefaultRunningPlan()
+  const localPlan = canUseLocal
+    ? buildActivePlanPayload(localRunning)
+    : createDefaultActivePlan(DEFAULT_RUNNING_PLAN)
 
   const [remoteSettings, remotePlan] = await Promise.all([
     fetchRemoteSettings(userId),
@@ -78,7 +90,7 @@ export async function pullAndMergeCloudConfig(userId: string): Promise<CloudConf
   ])
 
   let settings: AppSettings | null = null
-  let plan: RunningPlan | null = null
+  let plan: ActivePlanPayload | null = null
 
   if (remoteSettings) {
     settings = remoteSettings.settings
@@ -93,9 +105,17 @@ export async function pullAndMergeCloudConfig(userId: string): Promise<CloudConf
 
   if (remotePlan) {
     plan = remotePlan.plan
-    notifyActivePlanChanged(plan)
-  } else if (canUseLocal) {
-    await upsertRemoteActivePlan(userId, localPlan)
+    applyActivePlanProgram(plan)
+    notifyActivePlanChanged(plan.running)
+    if (remotePlan.needsUpgrade) {
+      await upsertRemoteActivePlan(userId, plan)
+    }
+  } else {
+    // Always seed new accounts with foundation-7-june (+ running defaults / local).
+    plan = localPlan
+    applyActivePlanProgram(plan)
+    notifyActivePlanChanged(plan.running)
+    await upsertRemoteActivePlan(userId, plan)
   }
 
   // Bind before training-log merge so upserts are allowed for this account
@@ -122,7 +142,17 @@ export async function pushCloudSettings(userId: string, settings: AppSettings): 
   bindLocalDataToAccount(userId)
 }
 
-export async function pushCloudActivePlan(userId: string, plan: RunningPlan): Promise<void> {
+export async function pushCloudActivePlan(userId: string, running: RunningPlan): Promise<void> {
+  if (!localDataBelongsToAccount(userId)) return
+  const plan = buildActivePlanPayload(running)
+  await upsertRemoteActivePlan(userId, plan)
+  bindLocalDataToAccount(userId)
+}
+
+export async function pushCloudActiveProgramPlan(
+  userId: string,
+  plan: ActivePlanPayload,
+): Promise<void> {
   if (!localDataBelongsToAccount(userId)) return
   await upsertRemoteActivePlan(userId, plan)
   bindLocalDataToAccount(userId)

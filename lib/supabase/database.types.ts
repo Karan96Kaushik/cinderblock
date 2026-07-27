@@ -1,5 +1,5 @@
 import type { AppSettings } from '@/lib/settings'
-import type { RunningPlan } from '@/lib/running'
+import type { ActivePlanPayload } from '@/lib/active-plan'
 import type { TrainingLogsBackup } from '@/lib/training-backup'
 
 export type UserSettingsRow = {
@@ -10,7 +10,7 @@ export type UserSettingsRow = {
 
 export type UserActivePlanRow = {
   user_id: string
-  plan: RunningPlan
+  plan: ActivePlanPayload
   updated_at: string
 }
 
@@ -28,6 +28,18 @@ export type UserTrainingLogRow = {
   device_id: string
   payload: TrainingLogsBackup
   updated_at: string
+}
+
+export type AiChatReportRow = {
+  id: string
+  user_id: string | null
+  created_at: string
+  chat_history: unknown
+  plaintext_draft: string | null
+  running_summary: string | null
+  json_attempts: unknown
+  validator_errors: unknown
+  schema_version: string | null
 }
 
 export type Database = {
@@ -50,11 +62,11 @@ export type Database = {
         Row: UserActivePlanRow
         Insert: {
           user_id: string
-          plan: RunningPlan
+          plan: ActivePlanPayload
           updated_at?: string
         }
         Update: {
-          plan?: RunningPlan
+          plan?: ActivePlanPayload
           updated_at?: string
         }
         Relationships: []
@@ -87,6 +99,29 @@ export type Database = {
         Update: {
           payload?: TrainingLogsBackup
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_chat_reports: {
+        Row: AiChatReportRow
+        Insert: {
+          id?: string
+          user_id?: string | null
+          created_at?: string
+          chat_history?: unknown
+          plaintext_draft?: string | null
+          running_summary?: string | null
+          json_attempts?: unknown
+          validator_errors?: unknown
+          schema_version?: string | null
+        }
+        Update: {
+          chat_history?: unknown
+          plaintext_draft?: string | null
+          running_summary?: string | null
+          json_attempts?: unknown
+          validator_errors?: unknown
+          schema_version?: string | null
         }
         Relationships: []
       }

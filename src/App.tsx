@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { SettingsProvider } from '@/hooks/use-settings'
 import { HapticInit } from '@/components/haptic-init'
@@ -9,8 +9,9 @@ import { GymTracker } from '@/components/gym/gym-tracker'
 import { MetricsTracker } from '@/components/metrics/metrics-tracker'
 import { RunningTracker } from '@/components/running/running-tracker'
 import { SettingsPage } from '@/components/settings/settings-page'
+import { AiChatPage } from '@/components/gym/ai-chat/ai-chat-page'
 import { LoginScreen, hasSkippedLogin } from '@/components/auth/login-screen'
-import { paths } from '@/lib/routes'
+import { paths, type AiChatModeParam } from '@/lib/routes'
 
 function OptionalLoginRedirect() {
   const navigate = useNavigate()
@@ -25,6 +26,22 @@ function OptionalLoginRedirect() {
   }, [isAuthenticated, isSupabaseEnabled, isLoading, navigate, location.pathname])
 
   return null
+}
+
+function AiChatRoute() {
+  const navigate = useNavigate()
+  const { mode } = useParams<{ mode: string }>()
+  const resolved: AiChatModeParam =
+    mode === 'create' || mode === 'edit' || mode === 'explain' ? mode : 'edit'
+
+  return (
+    <AiChatPage
+      mode={resolved}
+      onBack={() => navigate(paths.home())}
+      onSaved={() => navigate(paths.home())}
+      onRequestLogin={() => navigate(paths.login())}
+    />
+  )
 }
 
 function AppRoutes() {
@@ -52,6 +69,8 @@ function AppRoutes() {
               onContinueRun={() => navigate(paths.running('session'))}
               onOpenMetrics={() => navigate(paths.metrics())}
               onOpenSettings={() => navigate(paths.settings())}
+              onCreateWithAi={() => navigate(paths.aiChat('create'))}
+              onEditWithAi={() => navigate(paths.aiChat('edit'))}
             />
           }
         />
@@ -59,6 +78,7 @@ function AppRoutes() {
         <Route path="/running/*" element={<RunningTracker onBack={() => navigate(paths.home())} />} />
         <Route path="/metrics" element={<MetricsTracker onBack={() => navigate(paths.home())} />} />
         <Route path="/settings" element={<SettingsPage onBack={() => navigate(paths.home())} />} />
+        <Route path="/ai-chat/:mode" element={<AiChatRoute />} />
         <Route path="*" element={<Navigate to={paths.home()} replace />} />
       </Routes>
     </>

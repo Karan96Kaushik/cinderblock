@@ -12,6 +12,7 @@
     "deploy:install": "./scripts/deploy.sh --install",
     "amplify:sandbox": "npx ampx sandbox",
     "amplify:secret": "npx ampx sandbox secret set VITE_SUPABASE_SECRET_KEY",
+    "amplify:secret:cerebras": "npx ampx sandbox secret set CEREBRAS_API_KEY",
     "test:cerebras": "tsx scripts/test-cerebras-program.ts"
   },
   "dependencies": {

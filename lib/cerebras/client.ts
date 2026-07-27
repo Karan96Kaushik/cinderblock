@@ -54,23 +54,8 @@ export class CerebrasClient {
   }
 
   async chatCompletion(request: CerebrasChatRequest): Promise<CerebrasChatResponse> {
-    const body: Record<string, unknown> = {
-      model: request.model ?? this.defaultModel,
-      messages: request.messages,
-    }
-
-    if (request.temperature !== undefined) body.temperature = request.temperature
-    if (request.maxTokens !== undefined) body.max_tokens = request.maxTokens
-    if (request.responseFormat) body.response_format = toResponseFormatPayload(request.responseFormat)
-
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    })
+    const body = this.buildRequestBody(request)
+    const response = await this.post(body)
 
     const payload = await response.json().catch(() => ({}))
 
@@ -84,6 +69,96 @@ export class CerebrasClient {
     }
 
     return toChatResponse(payload as CerebrasRawChatCompletion, body.model as string)
+  }
+
+  /**
+   * Streaming chat completion. Yields text deltas as they arrive from Cerebras SSE.
+   * Callers must drain the iterator fully (or abort via AbortSignal).
+   */
+  async *streamChatCompletion(
+    request: Omit<CerebrasChatRequest, 'stream'>,
+    options?: { signal?: AbortSignal },
+  ): AsyncGenerator<string, void, undefined> {
+    const body = this.buildRequestBody({ ...request, stream: true })
+    const response = await this.post(body, options?.signal)
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}))
+      const errorBody = payload as CerebrasRawErrorBody
+      throw new CerebrasApiError(
+        response.status,
+        errorBody.error?.message ?? `Cerebras request failed (${response.status})`,
+        payload,
+      )
+    }
+
+    if (!response.body) {
+      throw new CerebrasApiError(502, 'Cerebras stream response had no body', null)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim()
+          if (!line || line.startsWith(':')) continue
+          if (!line.startsWith('data:')) continue
+
+          const data = line.slice(5).trim()
+          if (data === '[DONE]') return
+
+          try {
+            const parsed = JSON.parse(data) as {
+              choices?: Array<{ delta?: { content?: string | null } }>
+            }
+            const delta = parsed.choices?.[0]?.delta?.content
+            if (typeof delta === 'string' && delta.length > 0) {
+              yield delta
+            }
+          } catch {
+            // Ignore malformed SSE chunks; continue streaming.
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
+  private buildRequestBody(request: CerebrasChatRequest): Record<string, unknown> {
+    const body: Record<string, unknown> = {
+      model: request.model ?? this.defaultModel,
+      messages: request.messages,
+    }
+
+    if (request.temperature !== undefined) body.temperature = request.temperature
+    if (request.maxTokens !== undefined) body.max_tokens = request.maxTokens
+    if (request.responseFormat) body.response_format = toResponseFormatPayload(request.responseFormat)
+    if (request.stream) body.stream = true
+
+    return body
+  }
+
+  private async post(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
+    return fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal,
+    })
   }
 }
 

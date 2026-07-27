@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns'
-import { BookOpen, Calendar, ChevronRight, Footprints, Ruler, TrendingUp } from 'lucide-react'
+import { BookOpen, Calendar, ChevronRight, Footprints, Ruler, Sparkles, TrendingUp } from 'lucide-react'
 import {
   getProgramWorkoutKeys,
   getScheduleHint,
   getScheduleSectionLabel,
   getWorkoutLabel,
   getWorkoutTextColorClass,
-  program,
   REST_DAY_KEY,
   type ProgramWorkoutKey,
 } from '@/lib/program'
+import { useActiveProgram } from '@/hooks/use-active-program'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
@@ -52,6 +52,8 @@ interface HomePageProps {
   onContinueRun: () => void
   onOpenMetrics: () => void
   onOpenSettings: () => void
+  onCreateWithAi?: () => void
+  onEditWithAi?: () => void
 }
 
 function getTrainingStats(store: GymStore) {
@@ -152,7 +154,10 @@ export function HomePage({
   onContinueRun,
   onOpenMetrics,
   onOpenSettings,
+  onCreateWithAi,
+  onEditWithAi,
 }: HomePageProps) {
+  const { program } = useActiveProgram()
   const [store, setStore] = useState<GymStore>({})
   const [runs, setRuns] = useState<RunSessionLog[]>([])
   const [activeRun, setActiveRun] = useState<ReturnType<typeof readActiveRunSession>>(null)
@@ -224,6 +229,33 @@ export function HomePage({
             <h1 className="font-sans text-xl font-bold text-foreground tracking-wide mb-4">
               {program.name}
             </h1>
+
+            {(onCreateWithAi || onEditWithAi) && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {onEditWithAi && (
+                  <button
+                    type="button"
+                    onClick={onEditWithAi}
+                    data-haptic="selection"
+                    className="min-h-[36px] px-3 rounded-lg border border-border font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Edit with AI
+                  </button>
+                )}
+                {onCreateWithAi && (
+                  <button
+                    type="button"
+                    onClick={onCreateWithAi}
+                    data-haptic="selection"
+                    className="min-h-[36px] px-3 rounded-lg border border-border font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Create with AI
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3">
               {incompleteWorkout ? (

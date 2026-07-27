@@ -1,6 +1,9 @@
 {
   "version": "1.4",
   "custom": {
-    "testFunctionUrl": ""
+    "testFunctionUrl": "https://cqvy4p2soqtmrottpfh7cymjba0hrpqm.lambda-url.ap-south-1.on.aws/",
+    "aiExtractJsonUrl": "https://vnwsdnlffd5c5w4iszten7edli0vncxy.lambda-url.ap-south-1.on.aws/",
+    "aiChatUrl": "https://nlc3rezklydutlayorxash7bkq0rjdnu.lambda-url.ap-south-1.on.aws/",
+    "reportIssueUrl": "https://wulsrpdjcf7fe2g4kx7lea5mpm0jvlco.lambda-url.ap-south-1.on.aws/"
   }
 }

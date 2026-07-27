@@ -1,4 +1,4 @@
-import type { DeepPartial, ProgramDocument, ProgramExercise } from '@/lib/program-json'
+import type { DeepPartial, ProgramDocument, ProgramExercise } from '../program-json'
 
 /**
  * Cerebras structured outputs (strict mode) require every object's keys to

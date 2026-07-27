@@ -1,5 +1,6 @@
 export type GymView = 'calendar' | 'select' | 'workout' | 'explore'
 export type RunningView = 'plan' | 'session'
+export type AiChatModeParam = 'create' | 'edit' | 'explain'
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
@@ -25,6 +26,7 @@ export const paths = {
     view === 'session' ? '/running/session' : '/running',
   metrics: () => '/metrics',
   settings: () => '/settings',
+  aiChat: (mode: AiChatModeParam = 'edit') => `/ai-chat/${mode}`,
 }
 
 export function parseGymPath(pathname: string): {
@@ -50,4 +52,10 @@ export function parseGymPath(pathname: string): {
 
 export function parseRunningPath(pathname: string): RunningView {
   return pathname.startsWith('/running/session') ? 'session' : 'plan'
+}
+
+export function parseAiChatPath(pathname: string): AiChatModeParam | null {
+  const match = pathname.match(/^\/ai-chat\/(create|edit|explain)\/?$/)
+  if (!match) return null
+  return match[1] as AiChatModeParam
 }

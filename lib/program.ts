@@ -1,31 +1,38 @@
-import programData from '@/foundation-7-june.json'
+import foundationData from '@/foundation-7-june.json'
+import { getActiveProgram } from '@/lib/active-plan'
+import type { ProgramDocument, ProgramExercise as JsonProgramExercise } from '@/lib/program-json'
 
-export const program = programData
+export type ProgramExercise = JsonProgramExercise
 
-export type ProgramWorkoutKey = keyof typeof program.workouts
+export type ProgramWorkoutKey = keyof typeof foundationData.workouts
 
 export type WorkoutKey = ProgramWorkoutKey | 'rest'
-
-export type ProgramExercise = {
-  name: string
-  sets: number
-  reps?: string
-  duration?: string
-  /** Present on timed holds — each set logs seconds held. */
-  seconds?: string
-  muscles: string[]
-  refVideo?: string
-  notes: string[]
-}
-
-export function isTimedHoldExercise(exercise: ProgramExercise): boolean {
-  return Boolean(exercise.duration)
-}
 
 export type ProgramWorkout = {
   name: string
   exercises: ProgramExercise[]
 }
+
+/**
+ * Live view of the user's active program (defaults to foundation-7-june,
+ * replaced when a plan is loaded from Supabase / local storage).
+ */
+export const program: ProgramDocument = new Proxy({} as ProgramDocument, {
+  get(_target, prop, _receiver) {
+    const current = getActiveProgram()
+    const value = Reflect.get(current, prop, current)
+    return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(current) : value
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getActiveProgram())
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    return Reflect.getOwnPropertyDescriptor(getActiveProgram(), prop)
+  },
+  has(_target, prop) {
+    return Reflect.has(getActiveProgram(), prop)
+  },
+})
 
 export const REST_DAY_KEY = 'rest' as const
 export const REST_DAY_LABEL = 'Rest day'
@@ -119,4 +126,8 @@ export function getScheduleSectionLabel(): string {
     String(label).toLowerCase().includes('run'),
   )
   return hasRunning ? `${workoutCount}-day split + running` : `${workoutCount}-day split`
+}
+
+export function isTimedHoldExercise(exercise: ProgramExercise): boolean {
+  return Boolean(exercise.duration)
 }

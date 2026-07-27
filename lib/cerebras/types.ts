@@ -28,6 +28,8 @@ export type CerebrasChatRequest = {
   responseFormat?: CerebrasResponseFormat
   temperature?: number
   maxTokens?: number
+  /** When true, the API returns an SSE stream of token deltas. */
+  stream?: boolean
 }
 
 export type CerebrasUsage = {

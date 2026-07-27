@@ -6,12 +6,12 @@ import {
   getProgramWorkout,
   isProgramWorkoutKey,
   isTimedHoldExercise,
-  program,
   REST_DAY_KEY,
   type ProgramExercise,
   type ProgramWorkoutKey,
   type WorkoutKey,
 } from '@/lib/program'
+import { useActiveProgram } from '@/hooks/use-active-program'
 import {
   readExerciseVideos,
   setExerciseVideo,
@@ -205,6 +205,8 @@ function resolveViewFromStore(
 
 export function GymTracker({ onBack }: GymTrackerProps) {
   const { token } = useAuth()
+  // Subscribe so gym views re-render when the active program is loaded from Supabase
+  useActiveProgram()
   const navigate = useNavigate()
   const location = useLocation()
   const today = format(new Date(), 'yyyy-MM-dd')

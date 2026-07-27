@@ -15,7 +15,8 @@ import type { RunningPlan } from '@/lib/running'
 import type { AppSettings } from '@/lib/settings'
 
 /**
- * Keeps local settings, active plan, and training logs in sync with Supabase when signed in.
+ * Keeps local settings, active plan (foundation program + running), and training
+ * logs in sync with Supabase when signed in.
  * Mount inside both AuthProvider and SettingsProvider.
  */
 export function SupabaseCloudBridge() {
