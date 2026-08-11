@@ -1,6 +1,6 @@
 import outputs from '@/amplify_outputs.json'
 import { supabase } from '@/utils/supabase'
-import type { AiChatMode, ChatTurn } from '@/lib/ai-chat'
+import { STREAM_ERROR_MARKER, type AiChatMode, type ChatTurn } from '@/lib/ai-chat'
 import type { ProgramDocument, ProgramIssue } from '@/lib/program-json'
 
 type AmplifyOutputsCustom = {
@@ -143,6 +143,22 @@ export async function streamAiChat(request: StreamChatRequest): Promise<string> 
     if (done) break
     const chunk = decoder.decode(value, { stream: true })
     full += chunk
+
+    // Server signals mid-stream LLM failures with a sentinel (headers are
+    // already 200 text/plain by then). Drain the rest of the error message
+    // and surface it as a real error instead of assistant content.
+    if (full.includes(STREAM_ERROR_MARKER)) {
+      while (true) {
+        const rest = await reader.read()
+        if (rest.done) break
+        full += decoder.decode(rest.value, { stream: true })
+      }
+      full += decoder.decode()
+      const markerIndex = full.indexOf(STREAM_ERROR_MARKER)
+      const message = full.slice(markerIndex + STREAM_ERROR_MARKER.length).trim()
+      throw new AiHttpError(502, message || 'AI chat stream failed')
+    }
+
     request.onDelta(chunk)
   }
 

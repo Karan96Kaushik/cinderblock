@@ -59,6 +59,12 @@ export const handler = async (
       })
     }
 
+    // Reports embed full chat history + extraction attempts; cap the raw body
+    // so a single report cannot bloat the database.
+    if ((event.body?.length ?? 0) > 512_000) {
+      return json(413, { ok: false, error: 'Report payload is too large.' })
+    }
+
     const body = parseJsonBody<ReportRequest>(event)
     if (!body) {
       return json(400, { ok: false, error: 'Invalid JSON body' })

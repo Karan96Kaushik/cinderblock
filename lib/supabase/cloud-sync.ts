@@ -12,6 +12,7 @@ import {
   createDefaultActivePlan,
   type ActivePlanPayload,
 } from '@/lib/active-plan'
+import type { ProgramVersionSource } from '@/lib/program-version'
 import {
   bindLocalDataToAccount,
   localDataBelongsToAccount,
@@ -19,6 +20,7 @@ import {
 } from './account-scope'
 import { fetchRemoteSettings, upsertRemoteSettings } from './settings-sync'
 import { fetchRemoteActivePlan, upsertRemoteActivePlan } from './plan-sync'
+import { insertProgramVersion } from './program-version-sync'
 import { writeBodyMetrics, writeGymLog } from '@/lib/sync/storage'
 import { notifyTrainingLogChanged } from '@/lib/sync/events'
 import { clearActiveRunSession, writeRunLog } from '@/lib/running'
@@ -109,6 +111,7 @@ export async function pullAndMergeCloudConfig(userId: string): Promise<CloudConf
     notifyActivePlanChanged(plan.running)
     if (remotePlan.needsUpgrade) {
       await upsertRemoteActivePlan(userId, plan)
+      await recordProgramVersionSafe(userId, plan, 'seed')
     }
   } else {
     // Always seed new accounts with foundation-7-june (+ running defaults / local).
@@ -116,6 +119,7 @@ export async function pullAndMergeCloudConfig(userId: string): Promise<CloudConf
     applyActivePlanProgram(plan)
     notifyActivePlanChanged(plan.running)
     await upsertRemoteActivePlan(userId, plan)
+    await recordProgramVersionSafe(userId, plan, 'seed')
   }
 
   // Bind before training-log merge so upserts are allowed for this account
@@ -152,8 +156,29 @@ export async function pushCloudActivePlan(userId: string, running: RunningPlan):
 export async function pushCloudActiveProgramPlan(
   userId: string,
   plan: ActivePlanPayload,
+  opts?: { source?: ProgramVersionSource; note?: string | null },
 ): Promise<void> {
   if (!localDataBelongsToAccount(userId)) return
   await upsertRemoteActivePlan(userId, plan)
+  await recordProgramVersionSafe(userId, plan, opts?.source ?? 'cloud-sync', opts?.note)
   bindLocalDataToAccount(userId)
+}
+
+async function recordProgramVersionSafe(
+  userId: string,
+  plan: ActivePlanPayload,
+  source: ProgramVersionSource,
+  note?: string | null,
+): Promise<void> {
+  try {
+    await insertProgramVersion(userId, {
+      programId: plan.programId,
+      version: plan.program.version,
+      program: plan.program,
+      source,
+      note,
+    })
+  } catch (err) {
+    console.error('Failed to record program version:', err)
+  }
 }

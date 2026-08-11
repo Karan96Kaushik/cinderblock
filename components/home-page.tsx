@@ -11,6 +11,7 @@ import {
   type ProgramWorkoutKey,
 } from '@/lib/program'
 import { useActiveProgram } from '@/hooks/use-active-program'
+import { formatProgramVersionLabel } from '@/lib/program-version'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
 import { getLatestMetricValue, getLatestMetrics } from '@/components/metrics/metrics-tracker'
@@ -228,9 +229,12 @@ export function HomePage({
           {/* 1. Today + primary actions */}
           <div className="mb-8">
             <p className="font-mono text-xs text-muted-foreground mb-1">{todayLabel}</p>
-            <h1 className="font-sans text-xl font-bold text-foreground tracking-wide mb-4">
+            <h1 className="font-sans text-xl font-bold text-foreground tracking-wide mb-1">
               {program.name}
             </h1>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-4">
+              {formatProgramVersionLabel(program.version)}
+            </p>
 
             {(onCreateWithAi || onEditWithAi || onDiscussWithAi) && (
               <div className="flex flex-wrap gap-2 mb-4">

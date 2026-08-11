@@ -7,6 +7,19 @@ export const PLAN_READY_TOKEN = '<<PLAN_READY>>'
 export const AI_CHAT_SCHEMA_VERSION = '1.0'
 export const AI_CHAT_MAX_RECENT_TURNS = 7
 
+/**
+ * Emitted by the ai-chat Lambda when the upstream LLM stream fails after the
+ * 200 text/plain headers were already sent. Clients must treat everything
+ * after this marker as an error message, not assistant content.
+ */
+export const STREAM_ERROR_MARKER = '<<STREAM_ERROR>>'
+
+/** Shared request size limits, enforced client-side and in the Lambdas. */
+export const AI_CHAT_MAX_MESSAGE_CHARS = 4_000
+export const AI_CHAT_MAX_SUMMARY_CHARS = 8_000
+export const AI_CHAT_MAX_PLAN_CONTEXT_CHARS = 24_000
+export const AI_CHAT_MAX_TURN_CONTENT_CHARS = 8_000
+
 export type ChatRole = 'user' | 'assistant'
 
 export type ChatTurn = {

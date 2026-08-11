@@ -7,7 +7,11 @@ import {
   type CerebrasProgramGeneration,
 } from '../../../lib/cerebras'
 import { ProgramJsonManager, type ProgramIssue } from '../../../lib/program-json'
-import { AI_CHAT_SCHEMA_VERSION } from '../../../lib/ai-chat/parse-sentinels'
+import {
+  AI_CHAT_MAX_PLAN_CONTEXT_CHARS,
+  AI_CHAT_MAX_SUMMARY_CHARS,
+  AI_CHAT_SCHEMA_VERSION,
+} from '../../../lib/ai-chat/parse-sentinels'
 import { json, jsonHeaders, parseJsonBody } from '../_shared/http'
 import { createLogger } from '../_shared/logger'
 import { checkRateLimit } from '../_shared/rateLimit'
@@ -135,11 +139,21 @@ export const handler = async (
 
     const body = parseJsonBody<ExtractRequest>(event)
     const plaintextDraft = body?.plaintextDraft?.trim() ?? ''
-    const runningSummary = body?.runningSummary?.trim() ?? ''
+    // Summary is auxiliary context, so truncate instead of rejecting.
+    const runningSummary = (body?.runningSummary?.trim() ?? '').slice(
+      0,
+      AI_CHAT_MAX_SUMMARY_CHARS,
+    )
     const schemaVersion = body?.schemaVersion?.trim() || AI_CHAT_SCHEMA_VERSION
 
     if (!plaintextDraft) {
       return json(400, { ok: false, error: 'plaintextDraft is required' })
+    }
+    if (plaintextDraft.length > AI_CHAT_MAX_PLAN_CONTEXT_CHARS) {
+      return json(413, {
+        ok: false,
+        error: `Plan draft is too long (max ${AI_CHAT_MAX_PLAN_CONTEXT_CHARS} characters).`,
+      })
     }
 
     if (!readResolvedSecret('CEREBRAS_API_KEY')) {

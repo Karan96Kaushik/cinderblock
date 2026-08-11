@@ -1,7 +1,12 @@
 import type { Context, LambdaFunctionURLEvent } from 'aws-lambda'
 import { createCerebrasClient } from '../../../lib/cerebras'
 import {
+  AI_CHAT_MAX_MESSAGE_CHARS,
+  AI_CHAT_MAX_PLAN_CONTEXT_CHARS,
   AI_CHAT_MAX_RECENT_TURNS,
+  AI_CHAT_MAX_SUMMARY_CHARS,
+  AI_CHAT_MAX_TURN_CONTENT_CHARS,
+  STREAM_ERROR_MARKER,
   type AiChatMode,
   type ChatTurn,
 } from '../../../lib/ai-chat/parse-sentinels'
@@ -130,6 +135,13 @@ async function streamHandler(
       writeJsonError(responseStream, 400, { ok: false, error: 'newMessage is required' })
       return
     }
+    if (newMessage.length > AI_CHAT_MAX_MESSAGE_CHARS) {
+      writeJsonError(responseStream, 413, {
+        ok: false,
+        error: `Message is too long (max ${AI_CHAT_MAX_MESSAGE_CHARS} characters).`,
+      })
+      return
+    }
 
     const mode: AiChatMode =
       body?.mode === 'edit' || body?.mode === 'discuss' || body?.mode === 'create'
@@ -138,6 +150,8 @@ async function streamHandler(
           ? 'discuss'
           : 'create'
 
+    // App-generated context fields are truncated (not rejected) so an oversized
+    // summary or plan never blocks the conversation.
     const recentTurns = Array.isArray(body?.recentTurns)
       ? body!.recentTurns!
           .filter(
@@ -147,7 +161,17 @@ async function streamHandler(
               typeof turn.content === 'string',
           )
           .slice(-AI_CHAT_MAX_RECENT_TURNS)
+          .map((turn) => ({
+            role: turn.role,
+            content: turn.content.slice(0, AI_CHAT_MAX_TURN_CONTENT_CHARS),
+          }))
       : []
+
+    const runningSummary = (body?.runningSummary ?? '').slice(0, AI_CHAT_MAX_SUMMARY_CHARS)
+    const currentPlanContext =
+      typeof body?.currentPlanContext === 'string'
+        ? body.currentPlanContext.slice(0, AI_CHAT_MAX_PLAN_CONTEXT_CHARS)
+        : null
 
     const client = createCerebrasClient({
       model: process.env.CEREBRAS_MODEL?.trim() || undefined,
@@ -155,8 +179,8 @@ async function streamHandler(
 
     const system = buildChatSystemPrompt(mode)
     const userPayload = buildChatUserPayload({
-      runningSummary: body?.runningSummary ?? '',
-      currentPlanContext: body?.currentPlanContext ?? null,
+      runningSummary,
+      currentPlanContext,
       recentTurns,
       newMessage,
     })
@@ -179,9 +203,10 @@ async function streamHandler(
       }
     } catch (err) {
       log.errorWithCause('cerebras.stream_failed', err, { ...base, userId: user.id })
-      // If headers already sent as text/plain, append an error marker rather than JSON.
+      // Headers were already sent as 200 text/plain, so signal the failure with a
+      // sentinel the client recognizes and converts into a thrown error.
       stream.write(
-        `\n\n[ERROR] ${err instanceof Error ? err.message : 'Cerebras stream failed'}`,
+        `\n\n${STREAM_ERROR_MARKER} ${err instanceof Error ? err.message : 'Cerebras stream failed'}`,
       )
     }
 

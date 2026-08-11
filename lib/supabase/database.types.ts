@@ -1,6 +1,7 @@
 import type { AppSettings } from '@/lib/settings'
 import type { ActivePlanPayload } from '@/lib/active-plan'
 import type { TrainingLogsBackup } from '@/lib/training-backup'
+import type { ProgramDocument } from '@/lib/program-json'
 
 export type UserSettingsRow = {
   user_id: string
@@ -40,6 +41,17 @@ export type AiChatReportRow = {
   json_attempts: unknown
   validator_errors: unknown
   schema_version: string | null
+}
+
+export type UserProgramVersionRow = {
+  id: string
+  user_id: string
+  program_id: string
+  version: string
+  program: ProgramDocument
+  source: string
+  note: string | null
+  created_at: string
 }
 
 export type Database = {
@@ -122,6 +134,23 @@ export type Database = {
           json_attempts?: unknown
           validator_errors?: unknown
           schema_version?: string | null
+        }
+        Relationships: []
+      }
+      user_program_versions: {
+        Row: UserProgramVersionRow
+        Insert: {
+          id?: string
+          user_id: string
+          program_id: string
+          version: string
+          program: ProgramDocument
+          source?: string
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          note?: string | null
         }
         Relationships: []
       }

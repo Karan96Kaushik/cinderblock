@@ -3,6 +3,12 @@ import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 import { cn } from '@/lib/utils'
 
+/** Model-generated markdown: only allow link protocols that can't run script. */
+function isSafeHref(href: string | undefined): href is string {
+  if (!href) return false
+  return /^(https?:|mailto:)/i.test(href.trim())
+}
+
 const components: Components = {
   h1: ({ children }) => (
     <h1 className="font-sans text-base font-bold text-foreground mt-3 mb-1.5 first:mt-0">
@@ -35,16 +41,19 @@ const components: Components = {
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
   em: ({ children }) => <em className="italic text-foreground/90">{children}</em>,
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="text-neon-orange underline underline-offset-2 hover:opacity-80"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) =>
+    isSafeHref(href) ? (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="text-neon-orange underline underline-offset-2 hover:opacity-80"
+      >
+        {children}
+      </a>
+    ) : (
+      <span className="text-foreground">{children}</span>
+    ),
   code: ({ className, children }) => {
     const isBlock = Boolean(className?.includes('language-'))
     if (isBlock) {

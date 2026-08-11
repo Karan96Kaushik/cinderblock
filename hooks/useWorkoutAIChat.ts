@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  AI_CHAT_MAX_MESSAGE_CHARS,
   AI_CHAT_SCHEMA_VERSION,
   foldOverflowIntoSummary,
   parseAssistantPayload,
@@ -16,10 +17,11 @@ import {
   reportAiChatIssue,
   streamAiChat,
 } from '@/lib/amplify/ai-functions'
-import { writeActiveProgram } from '@/lib/active-plan'
+import { writeActiveProgram, getActiveProgram, getActiveProgramId } from '@/lib/active-plan'
 import { validateProgramDocument, type ProgramDocument, type ProgramIssue } from '@/lib/program-json'
 import { pushCloudActiveProgramPlan } from '@/lib/supabase/cloud-sync'
 import { readDefaultRunningPlan } from '@/lib/running'
+import { assignNextProgramVersion } from '@/lib/program-version'
 
 const STORAGE_PREFIX = 'cinderblock_ai_chat_'
 
@@ -55,11 +57,37 @@ function createSessionId() {
   return `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function isChatTurn(value: unknown): value is ChatTurn {
+  if (!value || typeof value !== 'object') return false
+  const turn = value as ChatTurn
+  return (
+    (turn.role === 'user' || turn.role === 'assistant') && typeof turn.content === 'string'
+  )
+}
+
+function isValidSessionState(value: unknown): value is AiChatSessionState {
+  if (!value || typeof value !== 'object') return false
+  const state = value as AiChatSessionState
+  return (
+    typeof state.sessionId === 'string' &&
+    (state.mode === 'create' || state.mode === 'edit' || state.mode === 'discuss') &&
+    typeof state.runningSummary === 'string' &&
+    typeof state.plaintextDraft === 'string' &&
+    typeof state.planReady === 'boolean' &&
+    typeof state.hasPlanDraft === 'boolean' &&
+    Array.isArray(state.recentTurns) &&
+    state.recentTurns.every(isChatTurn) &&
+    Array.isArray(state.chatHistoryFull) &&
+    state.chatHistoryFull.every(isChatTurn)
+  )
+}
+
 function loadSession(sessionId: string): AiChatSessionState | null {
   try {
     const raw = localStorage.getItem(storageKey(sessionId))
     if (!raw) return null
-    return JSON.parse(raw) as AiChatSessionState
+    const parsed: unknown = JSON.parse(raw)
+    return isValidSessionState(parsed) ? parsed : null
   } catch {
     return null
   }
@@ -162,14 +190,22 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     setSession((prev) => ({ ...prev, ...patch }))
   }, [])
 
+  /** Returns true when the exchange completed; false lets callers restore the input. */
   const sendMessage = useCallback(
-    async (rawMessage: string) => {
+    async (rawMessage: string): Promise<boolean> => {
       const newMessage = rawMessage.trim()
-      if (!newMessage || isStreaming || isSaving) return
+      if (!newMessage || isStreaming || isSaving) return false
+
+      if (newMessage.length > AI_CHAT_MAX_MESSAGE_CHARS) {
+        setError(
+          `Message is too long (${newMessage.length} characters, max ${AI_CHAT_MAX_MESSAGE_CHARS}). Try splitting it up.`,
+        )
+        return false
+      }
 
       if (!isAiChatConfigured()) {
         setError('AI chat is not configured yet. Deploy Amplify sandbox to get function URLs.')
-        return
+        return false
       }
 
       setError(null)
@@ -264,6 +300,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
         })
 
         setCheckpoint(undoSnapshot)
+        return true
       } catch (err) {
         if (err instanceof AuthRequiredError) {
           setNeedsReauth(true)
@@ -286,6 +323,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
           }
           return copy
         })
+        return false
       } finally {
         setIsStreaming(false)
         abortRef.current = null
@@ -357,15 +395,25 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
         }
       }
 
-      const programId = slugProgramId(clientValidation.data.name)
-      writeActiveProgram(programId, clientValidation.data)
-      await pushCloudActiveProgramPlan(userId, {
-        programId,
-        program: clientValidation.data,
-        running: readDefaultRunningPlan(),
-      })
+      const isCreate = session.mode === 'create'
+      const programId = isCreate
+        ? slugProgramId(clientValidation.data.name)
+        : getActiveProgramId()
+      const previous = isCreate ? null : getActiveProgram()
+      const versionedProgram = assignNextProgramVersion(clientValidation.data, previous)
 
-      return { ok: true, plan: clientValidation.data, programId }
+      writeActiveProgram(programId, versionedProgram)
+      await pushCloudActiveProgramPlan(
+        userId,
+        {
+          programId,
+          program: versionedProgram,
+          running: readDefaultRunningPlan(),
+        },
+        { source: 'ai-chat', note: `Saved from AI ${session.mode}` },
+      )
+
+      return { ok: true, plan: versionedProgram, programId }
     } catch (err) {
       if (err instanceof AuthRequiredError) {
         setNeedsReauth(true)
@@ -377,7 +425,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     } finally {
       setIsSaving(false)
     }
-  }, [canSave, session.plaintextDraft, session.runningSummary, userId])
+  }, [canSave, session.mode, session.plaintextDraft, session.runningSummary, userId])
 
   const reportIssue = useCallback(async () => {
     if (!hardFailure || !isReportIssueConfigured()) return

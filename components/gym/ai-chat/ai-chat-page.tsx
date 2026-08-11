@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, Loader2, Send, Sparkles, Undo2 } from 'lucide-react'
+import { ChevronLeft, FileText, Loader2, Send, Sparkles, Undo2, X } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useActiveProgram } from '@/hooks/use-active-program'
 import { useWorkoutAIChat, type AiChatUiMessage } from '@/hooks/useWorkoutAIChat'
@@ -8,6 +8,7 @@ import { CyberGrid } from '@/components/cyber-grid'
 import { ChatMarkdown } from '@/components/gym/ai-chat/chat-markdown'
 import { paths } from '@/lib/routes'
 import { cn } from '@/lib/utils'
+import { formatProgramVersionLabel } from '@/lib/program-version'
 
 type AiChatPageProps = {
   mode: AiChatMode
@@ -48,6 +49,8 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
   const { program } = useActiveProgram()
   const [input, setInput] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [showPlanPreview, setShowPlanPreview] = useState(false)
+  const [viewedDraft, setViewedDraft] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -68,6 +71,25 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`
   }, [input])
 
+  useEffect(() => {
+    if (!showPlanPreview) return
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setShowPlanPreview(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showPlanPreview])
+
+  const planDraft = chat.session.plaintextDraft
+  const hasRevisedPlan = chat.session.hasPlanDraft
+  /** Dot on the Plan button when the AI produced a revision the user hasn't opened yet. */
+  const hasUnseenRevision = hasRevisedPlan && Boolean(planDraft) && planDraft !== viewedDraft
+
+  function openPlanPreview() {
+    setViewedDraft(planDraft)
+    setShowPlanPreview(true)
+  }
+
   const title =
     mode === 'create'
       ? 'Create with AI'
@@ -85,7 +107,11 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
   async function handleSend() {
     const value = input
     setInput('')
-    await chat.sendMessage(value)
+    const sent = await chat.sendMessage(value)
+    if (!sent) {
+      // Failed or cancelled exchanges pop the user bubble, so give the text back.
+      setInput((current) => current || value)
+    }
   }
 
   async function handleSave() {
@@ -93,6 +119,9 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
     if (result.ok) {
       setSaveSuccess(true)
       setTimeout(() => onSaved(), 900)
+    } else {
+      // Failure details render in the chat area, so get the sheet out of the way.
+      setShowPlanPreview(false)
     }
   }
 
@@ -154,10 +183,29 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
           <div className="flex-1 min-w-0">
             <h1 className="font-sans text-base font-bold text-foreground truncate">{title}</h1>
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {program.name}
+              {program.name} · {formatProgramVersionLabel(program.version)}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={!planDraft.trim()}
+              onClick={openPlanPreview}
+              data-haptic="selection"
+              title={hasRevisedPlan ? 'View revised plan' : 'View current plan'}
+              className={cn(
+                'relative min-h-[40px] px-3 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5',
+                planDraft.trim()
+                  ? 'border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40'
+                  : 'border border-border/40 text-muted-foreground/40 cursor-not-allowed',
+              )}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Plan
+              {hasUnseenRevision && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-neon-orange animate-pulse" />
+              )}
+            </button>
             <button
               type="button"
               disabled={!chat.canRevert}
@@ -307,6 +355,75 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
           Enter to send · Shift+Enter for new line
         </p>
       </footer>
+
+      {showPlanPreview && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Plan preview"
+        >
+          <button
+            type="button"
+            aria-label="Close plan preview"
+            onClick={() => setShowPlanPreview(false)}
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+          />
+          <div className="relative z-10 mx-auto w-full max-w-2xl max-h-[85dvh] flex flex-col rounded-t-xl border border-b-0 border-border bg-background">
+            <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-border/60">
+              <FileText className="w-4 h-4 text-neon-orange shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h2 className="font-sans text-sm font-bold text-foreground truncate">
+                  {hasRevisedPlan ? 'Revised plan (draft)' : 'Current plan'}
+                </h2>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {hasRevisedPlan
+                    ? 'Not saved yet — review before saving'
+                    : `${program.name} · ${formatProgramVersionLabel(program.version)}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPlanPreview(false)}
+                aria-label="Close"
+                className="p-2 -mr-2 rounded-md text-muted-foreground hover:text-neon-orange"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3">
+              <pre className="font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                {planDraft}
+              </pre>
+            </div>
+
+            <div className="shrink-0 border-t border-border/60 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-3">
+              <p className="flex-1 font-mono text-[10px] text-muted-foreground leading-relaxed">
+                {chat.canSave || saveSuccess
+                  ? 'Saving converts this draft into your active program.'
+                  : hasRevisedPlan
+                    ? 'Finish the conversation before saving.'
+                    : 'No AI changes yet — ask for edits in the chat.'}
+              </p>
+              <button
+                type="button"
+                disabled={!chat.canSave || saveSuccess}
+                onClick={() => void handleSave()}
+                data-haptic="success"
+                className={cn(
+                  'min-h-[40px] px-4 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-opacity shrink-0',
+                  chat.canSave && !saveSuccess
+                    ? 'bg-neon-orange text-primary-foreground'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed',
+                )}
+              >
+                {chat.isSaving ? 'Saving…' : saveSuccess ? 'Saved' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
