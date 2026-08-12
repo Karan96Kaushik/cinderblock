@@ -12,6 +12,7 @@ import {
   type WorkoutKey,
 } from '@/lib/program'
 import { useActiveProgram } from '@/hooks/use-active-program'
+import { getActiveProgram } from '@/lib/active-plan'
 import {
   readExerciseVideos,
   setExerciseVideo,
@@ -51,6 +52,7 @@ export type ExerciseLog = {
 export type DayLog = {
   workoutKey: WorkoutKey | string
   exercises: Record<string, ExerciseLog>
+  programVersion?: string
 }
 
 export type GymStore = Record<string, DayLog>
@@ -297,9 +299,14 @@ export function GymTracker({ onBack }: GymTrackerProps) {
     }
     const existing = store[selectedDate]
     if (!existing || existing.workoutKey !== key) {
+      const currentProgram = getActiveProgram()
       saveStore({
         ...store,
-        [selectedDate]: { workoutKey: key, exercises: initExercises(key) },
+        [selectedDate]: { 
+          workoutKey: key, 
+          exercises: initExercises(key),
+          programVersion: currentProgram.version,
+        },
       })
     }
     goToGym(selectedDate, 'workout')

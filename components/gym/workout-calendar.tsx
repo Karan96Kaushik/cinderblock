@@ -182,6 +182,7 @@ export function WorkoutCalendar({
             : undefined
         }
         onStartWorkout={onStartWorkout}
+        showVersionHistory={true}
       />
 
       {selectedRuns.length > 0 && (

@@ -119,3 +119,32 @@ export async function fetchLatestProgramVersion(
     createdAt: data.created_at,
   }
 }
+
+/** Fetch a specific program version by version string. */
+export async function fetchProgramVersion(
+  userId: string,
+  programId: string,
+  version: string,
+): Promise<ProgramVersionRecord | null> {
+  const { data, error } = await supabase
+    .from('user_program_versions')
+    .select('id, user_id, program_id, version, program, source, note, created_at')
+    .eq('user_id', userId)
+    .eq('program_id', programId)
+    .eq('version', version)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    programId: data.program_id,
+    version: data.version,
+    program: data.program as ProgramDocument,
+    source: data.source,
+    note: data.note,
+    createdAt: data.created_at,
+  }
+}

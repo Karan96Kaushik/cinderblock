@@ -38,6 +38,7 @@ import {
   REST_DAY_KEY,
   type WorkoutKey,
 } from '@/lib/program'
+import { getActiveProgram } from '@/lib/active-plan'
 import type { GymStore } from '@/components/gym/gym-tracker'
 import { getDayStatus, initExercises } from '@/components/gym/gym-tracker'
 import {
@@ -120,9 +121,14 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     if (key === REST_DAY_KEY) {
       persistGym({ ...gymStore, [date]: { workoutKey: REST_DAY_KEY, exercises: {} } })
     } else {
+      const currentProgram = getActiveProgram()
       persistGym({
         ...gymStore,
-        [date]: { workoutKey: key, exercises: initExercises(key) },
+        [date]: { 
+          workoutKey: key, 
+          exercises: initExercises(key),
+          programVersion: currentProgram.version,
+        },
       })
     }
     Haptic.selection()
