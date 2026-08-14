@@ -7,6 +7,7 @@ export {
   AI_CHAT_SCHEMA_VERSION,
   foldOverflowIntoSummary,
   parseAssistantPayload,
+  stripPlanBlock,
   PLAN_END,
   PLAN_READY_TOKEN,
   PLAN_START,
@@ -23,4 +24,6 @@ export type {
   ParsedAssistantPayload,
 } from './parse-sentinels'
 export { programToPlaintext } from './plaintext-plan'
+export { diffPlaintextPlans, formatPlanDiffForPrompt } from './plan-diff'
+export type { PlanDiffSummary } from './plan-diff'
 

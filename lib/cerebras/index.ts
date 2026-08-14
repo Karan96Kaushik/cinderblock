@@ -25,6 +25,19 @@ export {
   cerebrasWorkoutSchema,
   toProgramDocumentPatch,
 } from './program-schema'
+export {
+  buildScopeJudgePrompt,
+  cerebrasScopeJudgeSchema,
+  normalizeScopeJudgeResult,
+  requestScopeJudgement,
+  SCOPE_JUDGE_CONTEXT,
+} from './scope-judge'
+export type {
+  ScopeJudgePromptInput,
+  ScopeJudgeResult,
+  ScopeJudgeStage,
+  ScopeJudgeVerdict,
+} from './scope-judge'
 export type {
   CerebrasProgramExercise,
   CerebrasProgramGeneration,

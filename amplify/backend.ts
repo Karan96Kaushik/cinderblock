@@ -4,6 +4,7 @@ import { amplifyTest } from './functions/test/resource'
 import { aiExtractJson } from './functions/ai-extract-json/resource'
 import { aiChat } from './functions/ai-chat/resource'
 import { reportIssue } from './functions/report-issue/resource'
+import { aiScopeJudge } from './functions/ai-scope-judge/resource'
 
 /**
  * Amplify Gen 2 backend — functions only.
@@ -18,6 +19,7 @@ const backend = defineBackend({
   aiExtractJson,
   aiChat,
   reportIssue,
+  aiScopeJudge,
 })
 
 const cors = {
@@ -47,11 +49,17 @@ const reportIssueUrl = backend.reportIssue.resources.lambda.addFunctionUrl({
   cors,
 })
 
+const aiScopeJudgeUrl = backend.aiScopeJudge.resources.lambda.addFunctionUrl({
+  authType: FunctionUrlAuthType.NONE,
+  cors,
+})
+
 backend.addOutput({
   custom: {
     testFunctionUrl: testFunctionUrl.url,
     aiExtractJsonUrl: aiExtractJsonUrl.url,
     aiChatUrl: aiChatUrl.url,
     reportIssueUrl: reportIssueUrl.url,
+    aiScopeJudgeUrl: aiScopeJudgeUrl.url,
   },
 })

@@ -8,6 +8,7 @@ type AmplifyOutputsCustom = {
   aiExtractJsonUrl?: string
   aiChatUrl?: string
   reportIssueUrl?: string
+  aiScopeJudgeUrl?: string
 }
 
 function getCustom(): AmplifyOutputsCustom {
@@ -25,6 +26,10 @@ export function isAiChatConfigured(): boolean {
 
 export function isReportIssueConfigured(): boolean {
   return Boolean(readUrl('reportIssueUrl'))
+}
+
+export function isScopeJudgeConfigured(): boolean {
+  return Boolean(readUrl('aiScopeJudgeUrl'))
 }
 
 async function getAccessToken(): Promise<string> {
@@ -246,4 +251,71 @@ export async function reportAiChatIssue(args: {
   }
 
   return { ok: true, reportId: payload.reportId }
+}
+
+export type ScopeJudgeStage = 'apply' | 'save'
+
+export type ScopeJudgeResult = {
+  verdict: 'accept' | 'reject'
+  reason: string
+  requestedChanges: string[]
+  extraChanges: string[]
+}
+
+export type ScopeJudgeRequest = {
+  mode: AiChatMode
+  stage: ScopeJudgeStage
+  runningSummary: string
+  recentTurns: ChatTurn[]
+  previousPlan: string
+  proposedPlan: string
+}
+
+export async function judgePlanScope(
+  args: ScopeJudgeRequest,
+): Promise<ScopeJudgeResult> {
+  const url = readUrl('aiScopeJudgeUrl')
+  if (!url) {
+    throw new Error(
+      'Scope judge URL is not set. Run `npx ampx sandbox` so amplify_outputs.json includes custom.aiScopeJudgeUrl.',
+    )
+  }
+
+  const response = await authorizedFetch(url, args)
+  const payload = (await response.json().catch(() => ({}))) as {
+    ok?: boolean
+    error?: string
+    verdict?: string
+    reason?: string
+    requestedChanges?: string[]
+    extraChanges?: string[]
+  }
+
+  if (!response.ok || !payload.ok) {
+    throw new AiHttpError(
+      response.status,
+      payload.error ?? `Scope check failed (HTTP ${response.status})`,
+      payload,
+    )
+  }
+
+  const extraChanges = Array.isArray(payload.extraChanges)
+    ? payload.extraChanges.filter((item): item is string => typeof item === 'string')
+    : []
+  const requestedChanges = Array.isArray(payload.requestedChanges)
+    ? payload.requestedChanges.filter((item): item is string => typeof item === 'string')
+    : []
+  const verdict = payload.verdict === 'reject' ? 'reject' : 'accept'
+
+  return {
+    verdict,
+    reason:
+      typeof payload.reason === 'string' && payload.reason.trim()
+        ? payload.reason.trim()
+        : verdict === 'reject'
+          ? 'The proposed plan includes changes beyond what you asked for.'
+          : 'Changes match the request.',
+    requestedChanges,
+    extraChanges,
+  }
 }

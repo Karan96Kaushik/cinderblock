@@ -116,6 +116,11 @@ function scrubIncompleteSentinels(text: string): string {
   return working
 }
 
+/** Drop a complete <<PLAN>>…<<END_PLAN>> block so a rejected rewrite is not shown as applied. */
+export function stripPlanBlock(raw: string): string {
+  return raw.replace(/<<PLAN>>[\s\S]*?<<END_PLAN>>/g, '').trim()
+}
+
 /**
  * Keep at most `maxTurns` recent messages. Older overflow is folded into a
  * compact textual note the caller can merge into runningSummary locally

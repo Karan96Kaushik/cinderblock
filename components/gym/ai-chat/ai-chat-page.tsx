@@ -18,6 +18,16 @@ type AiChatPageProps = {
 }
 
 function Bubble({ message }: { message: AiChatUiMessage }) {
+  if (message.role === 'system') {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[85%] rounded-lg px-3.5 py-2.5 text-sm leading-relaxed border border-neon-yellow/40 bg-neon-yellow/5 text-foreground font-sans whitespace-pre-wrap">
+          {message.content}
+        </div>
+      </div>
+    )
+  }
+
   const isUser = message.role === 'user'
   return (
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
@@ -270,6 +280,12 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
             <Bubble key={message.id} message={message} />
           ))}
 
+          {chat.isJudging && (
+            <div className="rounded-lg border border-border home-surface px-3 py-2 font-mono text-xs text-muted-foreground">
+              Checking that these changes stay within what you asked for…
+            </div>
+          )}
+
           {chat.error && (
             <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
               {chat.error}
@@ -324,13 +340,20 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
                 void handleSend()
               }
             }}
-            disabled={chat.isStreaming || chat.isSaving}
+            disabled={chat.isStreaming || chat.isJudging || chat.isSaving}
             placeholder={placeholder}
             rows={1}
             aria-label="Message"
             className="flex-1 min-h-[48px] max-h-40 resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-3 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-neon-orange/60 leading-relaxed"
           />
-          {chat.isStreaming ? (
+          {chat.isJudging ? (
+            <div
+              className="min-h-[48px] min-w-[48px] rounded-lg border border-border text-muted-foreground flex items-center justify-center shrink-0"
+              aria-label="Checking change scope"
+            >
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          ) : chat.isStreaming ? (
             <button
               type="button"
               onClick={chat.cancelStream}

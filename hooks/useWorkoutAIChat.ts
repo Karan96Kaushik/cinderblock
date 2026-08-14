@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AI_CHAT_MAX_MESSAGE_CHARS,
   AI_CHAT_SCHEMA_VERSION,
+  diffPlaintextPlans,
   foldOverflowIntoSummary,
   parseAssistantPayload,
   programToPlaintext,
+  stripPlanBlock,
   trimRecentTurns,
   type AiChatMode,
   type ChatTurn,
@@ -14,8 +16,11 @@ import {
   extractPlanJson,
   isAiChatConfigured,
   isReportIssueConfigured,
+  isScopeJudgeConfigured,
+  judgePlanScope,
   reportAiChatIssue,
   streamAiChat,
+  type ScopeJudgeResult,
 } from '@/lib/amplify/ai-functions'
 import { writeActiveProgram, getActiveProgram, getActiveProgramId } from '@/lib/active-plan'
 import { validateProgramDocument, type ProgramDocument, type ProgramIssue } from '@/lib/program-json'
@@ -122,11 +127,36 @@ export type SaveDraftResult =
   | { ok: true; plan: ProgramDocument; programId: string }
   | {
       ok: false
-      reason: 'validation_failed' | 'client_validation_failed' | 'extract_error' | 'auth'
+      reason:
+        | 'validation_failed'
+        | 'client_validation_failed'
+        | 'extract_error'
+        | 'auth'
+        | 'scope_rejected'
       message: string
       attempts?: unknown
       validatorErrors?: ProgramIssue[]
     }
+
+function formatScopeRejection(result: ScopeJudgeResult): string {
+  const extras = result.extraChanges.slice(0, 8)
+  const extraBlock =
+    extras.length > 0
+      ? `\n\nExtra changes that were not applied:\n${extras.map((item) => `- ${item}`).join('\n')}`
+      : ''
+  return `Those edits were too broad, so the plan was not updated.\n\n${result.reason}${extraBlock}\n\nAsk for a smaller change, or confirm the extras if you actually want them.`
+}
+
+function scopeIssuesFromJudge(result: ScopeJudgeResult): ProgramIssue[] {
+  const extras =
+    result.extraChanges.length > 0 ? result.extraChanges : [result.reason]
+  return extras.map((message, index) => ({
+    severity: 'error' as const,
+    path: 'scope',
+    code: 'overreach',
+    message: extras.length > 1 ? `${index + 1}. ${message}` : message,
+  }))
+}
 
 export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
   const { mode, currentProgram, userId } = options
@@ -162,6 +192,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
   })
 
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isJudging, setIsJudging] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isReporting, setIsReporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -181,6 +212,11 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
   const sentInitialContextRef = useRef(false)
   const messagesRef = useRef(messages)
   messagesRef.current = messages
+  const baselinePlaintextRef = useRef(
+    (mode === 'edit' || mode === 'discuss') && currentProgram
+      ? programToPlaintext(currentProgram)
+      : '',
+  )
 
   useEffect(() => {
     persistSession(session)
@@ -194,7 +230,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
   const sendMessage = useCallback(
     async (rawMessage: string): Promise<boolean> => {
       const newMessage = rawMessage.trim()
-      if (!newMessage || isStreaming || isSaving) return false
+      if (!newMessage || isStreaming || isSaving || isJudging) return false
 
       if (newMessage.length > AI_CHAT_MAX_MESSAGE_CHARS) {
         setError(
@@ -269,21 +305,64 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
           runningSummary = parsed.runningSummary
         }
 
-        const assistantTurn: ChatTurn = { role: 'assistant', content: parsed.displayText }
+        let displayText = parsed.displayText
+        let nextDraft = parsed.plaintextDraft ?? session.plaintextDraft
+        let hasPlanDraft = session.hasPlanDraft || Boolean(parsed.plaintextDraft)
+        let planReady = session.planReady || parsed.planReady
+        let scopeRejected: ScopeJudgeResult | null = null
+
+        const proposedDraft = parsed.plaintextDraft
+        const previousDraft = session.plaintextDraft
+        const planChanged =
+          Boolean(proposedDraft) &&
+          diffPlaintextPlans(previousDraft, proposedDraft ?? '').changed
+
+        if (planChanged && proposedDraft && isScopeJudgeConfigured()) {
+          setIsJudging(true)
+          try {
+            const judgement = await judgePlanScope({
+              mode: session.mode,
+              stage: 'apply',
+              runningSummary,
+              recentTurns: trimmed.recentTurns,
+              previousPlan: previousDraft,
+              proposedPlan: proposedDraft,
+            })
+            if (judgement.verdict === 'reject') {
+              scopeRejected = judgement
+              nextDraft = previousDraft
+              hasPlanDraft = session.hasPlanDraft
+              planReady = session.planReady
+              displayText = parseAssistantPayload(stripPlanBlock(assembled)).displayText
+              runningSummary = [
+                runningSummary.trim(),
+                `Scope auditor rejected the last plan rewrite: ${judgement.reason}`,
+              ]
+                .filter(Boolean)
+                .join('\n')
+            }
+          } catch (err) {
+            // Infra failures fail open so a judge outage cannot block chatting.
+            console.error('Plan scope check failed; applying draft:', err)
+          } finally {
+            setIsJudging(false)
+          }
+        }
+
+        const assistantTurn: ChatTurn = { role: 'assistant', content: displayText }
         const afterAssistant = [...trimmed.recentTurns, assistantTurn]
         const finalTrim = trimRecentTurns(afterAssistant)
         runningSummary = foldOverflowIntoSummary(runningSummary, finalTrim.overflow)
 
-        const nextDraft = parsed.plaintextDraft ?? session.plaintextDraft
-        const hasPlanDraft = session.hasPlanDraft || Boolean(parsed.plaintextDraft)
+        const historyTurns: ChatTurn[] = [...nextHistory, assistantTurn]
 
         updateSession({
           runningSummary,
           recentTurns: finalTrim.recentTurns,
           plaintextDraft: nextDraft,
-          planReady: session.planReady || parsed.planReady,
+          planReady,
           hasPlanDraft,
-          chatHistoryFull: [...nextHistory, assistantTurn],
+          chatHistoryFull: historyTurns,
         })
 
         setMessages((prev) => {
@@ -292,9 +371,16 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
           if (last?.role === 'assistant') {
             copy[copy.length - 1] = {
               ...last,
-              content: parsed.displayText,
+              content: displayText,
               streaming: false,
             }
+          }
+          if (scopeRejected) {
+            copy.push({
+              id: `sys-${Date.now()}`,
+              role: 'system',
+              content: formatScopeRejection(scopeRejected),
+            })
           }
           return copy
         })
@@ -329,13 +415,14 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
         abortRef.current = null
       }
     },
-    [isSaving, isStreaming, session, updateSession],
+    [isSaving, isStreaming, isJudging, session, updateSession],
   )
 
   const canSave =
     Boolean(session.plaintextDraft.trim()) &&
     (session.planReady || session.hasPlanDraft) &&
     !isStreaming &&
+    !isJudging &&
     !isSaving
 
   const saveDraft = useCallback(async (): Promise<SaveDraftResult> => {
@@ -395,6 +482,40 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
         }
       }
 
+      if (isScopeJudgeConfigured()) {
+        const userTurns = session.chatHistoryFull
+          .filter((turn) => turn.role === 'user')
+          .slice(-8)
+        try {
+          const judgement = await judgePlanScope({
+            mode: session.mode,
+            stage: 'save',
+            runningSummary: session.runningSummary,
+            recentTurns: userTurns,
+            previousPlan: baselinePlaintextRef.current,
+            proposedPlan: session.plaintextDraft,
+          })
+          if (judgement.verdict === 'reject') {
+            const validatorErrors = scopeIssuesFromJudge(judgement)
+            const failure = {
+              attempts: result.attempts,
+              validatorErrors,
+              message: `The converted plan changes more than you asked for, so it was not saved. ${judgement.reason}`,
+            }
+            setHardFailure(failure)
+            return {
+              ok: false,
+              reason: 'scope_rejected',
+              message: failure.message,
+              attempts: result.attempts,
+              validatorErrors,
+            }
+          }
+        } catch (err) {
+          console.error('Save-time scope check failed; continuing with save:', err)
+        }
+      }
+
       const isCreate = session.mode === 'create'
       const programId = isCreate
         ? slugProgramId(clientValidation.data.name)
@@ -425,7 +546,7 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     } finally {
       setIsSaving(false)
     }
-  }, [canSave, session.mode, session.plaintextDraft, session.runningSummary, userId])
+  }, [canSave, session.chatHistoryFull, session.mode, session.plaintextDraft, session.runningSummary, userId])
 
   const reportIssue = useCallback(async () => {
     if (!hardFailure || !isReportIssueConfigured()) return
@@ -457,22 +578,23 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
     abortRef.current?.abort()
   }, [])
 
-  const canRevert = Boolean(checkpoint) && !isStreaming && !isSaving
+  const canRevert = Boolean(checkpoint) && !isStreaming && !isJudging && !isSaving
 
   const revertLastChanges = useCallback(() => {
-    if (!checkpoint || isStreaming || isSaving) return
+    if (!checkpoint || isStreaming || isJudging || isSaving) return
     setSession(checkpoint.session)
     setMessages(checkpoint.messages)
     setCheckpoint(null)
     setError(null)
     setHardFailure(null)
     setReportSentId(null)
-  }, [checkpoint, isSaving, isStreaming])
+  }, [checkpoint, isJudging, isSaving, isStreaming])
 
   return {
     session,
     messages,
     isStreaming,
+    isJudging,
     isSaving,
     isReporting,
     error,
