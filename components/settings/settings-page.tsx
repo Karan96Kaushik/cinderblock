@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format, parseISO, subDays } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import {
   Bell,
   BellOff,
@@ -7,6 +8,7 @@ import {
   ChevronUp,
   Cloud,
   Download,
+  Edit3,
   Footprints,
   Loader2,
   RotateCcw,
@@ -39,8 +41,10 @@ import {
   type WorkoutKey,
 } from '@/lib/program'
 import { getActiveProgram } from '@/lib/active-plan'
+import { useActiveProgram } from '@/hooks/use-active-program'
 import type { GymStore } from '@/components/gym/gym-tracker'
 import { getDayStatus, initExercises } from '@/components/gym/gym-tracker'
+import { paths } from '@/lib/routes'
 import {
   clearRunLog,
   deleteRunSession,
@@ -75,6 +79,8 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
+  const navigate = useNavigate()
+  const { program, programId } = useActiveProgram()
   const { settings, setFontSize, setFontPreset, setTheme, resetSettings, replaceSettings } =
     useSettings()
   const { token, user, authBackend, isAuthenticated, isSupabaseEnabled } = useAuth()
@@ -192,6 +198,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 pb-12 space-y-8 pt-6">
+        <ProgramSection
+          programName={program.name}
+          programVersion={program.version}
+          workoutCount={Object.keys(program.workouts).length}
+          onEdit={() => navigate(paths.programEditor())}
+        />
+
         <AppearanceSection
           fontSize={settings.fontSize}
           fontPreset={settings.fontPreset}
@@ -1410,5 +1423,42 @@ function ConfirmRow({
         Cancel
       </button>
     </div>
+  )
+}
+
+interface ProgramSectionProps {
+  programName: string
+  programVersion: string
+  workoutCount: number
+  onEdit: () => void
+}
+
+function ProgramSection({ programName, programVersion, workoutCount, onEdit }: ProgramSectionProps) {
+  return (
+    <SectionCard title="Program">
+      <div className="space-y-4">
+        <div>
+          <p className="font-sans text-lg font-bold text-foreground mb-1">{programName}</p>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-muted-foreground">
+              Version {programVersion}
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="font-mono text-xs text-muted-foreground">
+              {workoutCount} workout{workoutCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={onEdit}
+          data-haptic="selection"
+          className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
+        >
+          <Edit3 className="w-4 h-4" />
+          <span>Edit Program</span>
+        </button>
+      </div>
+    </SectionCard>
   )
 }
