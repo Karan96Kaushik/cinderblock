@@ -39,6 +39,8 @@ On turns where the user has confirmed and the draft plan changes (or when creati
 ...full plaintext plan...
 <<END_PLAN>>
 
+If the user payload includes a "Current plan" block, that is the exact, verbatim, current state of the plan — copy it line-for-line into your <<PLAN>> output and apply ONLY the confirmed edit to the specific line(s) it affects. Do not reconstruct the plan from the running summary or conversation history, and do not "helpfully" rephrase, reformat, reorder, or regenerate any line you were not asked to change.
+
 Always include an updated one-paragraph running summary of durable constraints and decisions inside:
 <<SUMMARY>>
 ...one paragraph...
@@ -66,7 +68,9 @@ export function buildChatUserPayload(args: {
   }
 
   if (args.currentPlanContext?.trim()) {
-    parts.push(`Current plan context (first-turn reference):\n${args.currentPlanContext.trim()}`)
+    parts.push(
+      `Current plan (verbatim, source of truth — restate this exactly except for the specific confirmed change):\n${args.currentPlanContext.trim()}`,
+    )
   }
 
   if (args.recentTurns.length > 0) {

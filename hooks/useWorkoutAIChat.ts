@@ -209,7 +209,6 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
   } | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
-  const sentInitialContextRef = useRef(false)
   const messagesRef = useRef(messages)
   messagesRef.current = messages
   const baselinePlaintextRef = useRef(
@@ -261,11 +260,13 @@ export function useWorkoutAIChat(options: UseWorkoutAIChatOptions) {
       const trimmed = trimRecentTurns(withUser)
       let runningSummary = foldOverflowIntoSummary(session.runningSummary, trimmed.overflow)
 
-      const currentPlanContext =
-        !sentInitialContextRef.current && session.plaintextDraft
-          ? session.plaintextDraft
-          : null
-      sentInitialContextRef.current = true
+      // Sent on every turn (not just the first) so the model always edits the
+      // real ground-truth plan text instead of reconstructing it from a lossy
+      // running summary / trimmed chat history. That reconstruction is what
+      // caused "confirmed" edits to come back as full rewrites: once the
+      // model lost sight of the exact plan text, it had no choice but to
+      // regenerate one from memory, which the scope auditor then rejected.
+      const currentPlanContext = session.plaintextDraft.trim() ? session.plaintextDraft : null
 
       setMessages((prev) => [
         ...prev,

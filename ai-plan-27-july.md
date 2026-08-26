@@ -81,7 +81,7 @@ Since only the last 7 turns are sent, older context must be preserved via a runn
 {
   "mode": "explain" | "edit" | "create",
   "runningSummary": "...",
-  "currentPlanContext": "<plaintext plan summary or null, first turn only>",
+  "currentPlanContext": "<verbatim plaintext plan, or null; sent every turn so edits target the real plan text, not a reconstruction from summary/history>",
   "recentTurns": [ ...last up to 7... ],
   "newMessage": "user's latest message"
 }
