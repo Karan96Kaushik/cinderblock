@@ -54,9 +54,7 @@ interface HomePageProps {
   onContinueRun: () => void
   onOpenMetrics: () => void
   onOpenSettings: () => void
-  onCreateWithAi?: () => void
-  onEditWithAi?: () => void
-  onDiscussWithAi?: () => void
+  onOpenAiChat?: () => void
 }
 
 function getTrainingStats(store: GymStore) {
@@ -158,9 +156,7 @@ export function HomePage({
   onContinueRun,
   onOpenMetrics,
   onOpenSettings,
-  onCreateWithAi,
-  onEditWithAi,
-  onDiscussWithAi,
+  onOpenAiChat,
 }: HomePageProps) {
   const { program } = useActiveProgram()
   const [store, setStore] = useState<GymStore>({})
@@ -239,41 +235,17 @@ export function HomePage({
               {formatProgramVersionLabel(program.version)}
             </p>
 
-            {(onCreateWithAi || onEditWithAi || onDiscussWithAi) && (
+            {onOpenAiChat && (
               <div className="flex flex-wrap gap-2 mb-4">
-                {onDiscussWithAi && (
-                  <button
-                    type="button"
-                    onClick={onDiscussWithAi}
-                    data-haptic="selection"
-                    className="min-h-[36px] px-3 rounded-lg border border-border font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors inline-flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Discuss
-                  </button>
-                )}
-                {onEditWithAi && (
-                  <button
-                    type="button"
-                    onClick={onEditWithAi}
-                    data-haptic="selection"
-                    className="min-h-[36px] px-3 rounded-lg border border-border font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors inline-flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Edit with AI
-                  </button>
-                )}
-                {onCreateWithAi && (
-                  <button
-                    type="button"
-                    onClick={onCreateWithAi}
-                    data-haptic="selection"
-                    className="min-h-[36px] px-3 rounded-lg border border-border font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors inline-flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Create with AI
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={onOpenAiChat}
+                  data-haptic="selection"
+                  className="min-h-[36px] px-3 rounded-lg border border-border font-mono text-[11px] tracking-wider uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Discuss with AI
+                </button>
               </div>
             )}
 

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { SettingsProvider } from '@/hooks/use-settings'
 import { HapticInit } from '@/components/haptic-init'
@@ -31,17 +31,13 @@ function OptionalLoginRedirect() {
 
 function AiChatRoute() {
   const navigate = useNavigate()
-  const { mode } = useParams<{ mode: string }>()
-  const resolved: AiChatModeParam =
-    mode === 'create' || mode === 'edit' || mode === 'discuss'
-      ? mode
-      : mode === 'explain'
-        ? 'discuss'
-        : 'edit'
+  // All AI capabilities (create, edit, discuss) now live under one "Discuss with AI" flow,
+  // so any legacy /ai-chat/:mode deep link resolves to the same experience.
+  const mode: AiChatModeParam = 'discuss'
 
   return (
     <AiChatPage
-      mode={resolved}
+      mode={mode}
       onBack={() => navigate(paths.home())}
       onSaved={() => navigate(paths.home())}
       onRequestLogin={() => navigate(paths.login())}
@@ -74,9 +70,7 @@ function AppRoutes() {
               onContinueRun={() => navigate(paths.running('session'))}
               onOpenMetrics={() => navigate(paths.metrics())}
               onOpenSettings={() => navigate(paths.settings())}
-              onCreateWithAi={() => navigate(paths.aiChat('create'))}
-              onEditWithAi={() => navigate(paths.aiChat('edit'))}
-              onDiscussWithAi={() => navigate(paths.aiChat('discuss'))}
+              onOpenAiChat={() => navigate(paths.aiChat('discuss'))}
             />
           }
         />

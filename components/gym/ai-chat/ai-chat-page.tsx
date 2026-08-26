@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, FileText, Loader2, Send, Sparkles, Undo2, X } from 'lucide-react'
+import { Check, ChevronLeft, FileText, Loader2, Save, Send, Sparkles, Undo2, X } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useActiveProgram } from '@/hooks/use-active-program'
 import { useWorkoutAIChat, type AiChatUiMessage } from '@/hooks/useWorkoutAIChat'
@@ -64,9 +64,11 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // All AI capabilities (create/edit/discuss) now live under one flow, seeded from the
+  // active program so the AI can both discuss it and propose edits in the same chat.
   const chat = useWorkoutAIChat({
     mode,
-    currentProgram: mode === 'create' ? null : program,
+    currentProgram: program,
     userId: user?.id ?? null,
   })
 
@@ -100,19 +102,24 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
     setShowPlanPreview(true)
   }
 
-  const title =
-    mode === 'create'
-      ? 'Create with AI'
-      : mode === 'edit'
-        ? 'Edit with AI'
-        : 'Discuss with AI'
+  // Prewritten prompts are only relevant to the current turn — show each one
+  // only when the action it represents actually applies right now.
+  const lastMessage = chat.messages[chat.messages.length - 1]
+  /** The AI just finished responding, so it's plausibly waiting on a confirmation. */
+  const showConfirm =
+    Boolean(lastMessage) &&
+    lastMessage.role === 'assistant' &&
+    !lastMessage.streaming &&
+    !chat.isJudging &&
+    !chat.isSaving &&
+    !saveSuccess
+  const showViewPlan = Boolean(planDraft.trim())
+  const showRevert = chat.canRevert
+  const showSave = Boolean(planDraft.trim()) && (chat.session.planReady || hasRevisedPlan)
+  const showAnyPrompt = showConfirm || showViewPlan || showRevert || showSave
 
-  const placeholder =
-    mode === 'create'
-      ? 'Describe the plan you want…'
-      : mode === 'edit'
-        ? 'What should we change?'
-        : 'Ask anything about your plan…'
+  const title = 'Discuss with AI'
+  const placeholder = 'Ask anything, or say what to change…'
 
   async function handleSend() {
     const value = input
@@ -122,6 +129,11 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
       // Failed or cancelled exchanges pop the user bubble, so give the text back.
       setInput((current) => current || value)
     }
+  }
+
+  /** Sends a prewritten prompt exactly as if the user had typed and sent it. */
+  async function sendPrewritten(text: string) {
+    await chat.sendMessage(text)
   }
 
   async function handleSave() {
@@ -196,57 +208,6 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
               {program.name} · {formatProgramVersionLabel(program.version)}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              disabled={!planDraft.trim()}
-              onClick={openPlanPreview}
-              data-haptic="selection"
-              title={hasRevisedPlan ? 'View revised plan' : 'View current plan'}
-              className={cn(
-                'relative min-h-[40px] px-3 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5',
-                planDraft.trim()
-                  ? 'border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40'
-                  : 'border border-border/40 text-muted-foreground/40 cursor-not-allowed',
-              )}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Plan
-              {hasUnseenRevision && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-neon-orange animate-pulse" />
-              )}
-            </button>
-            <button
-              type="button"
-              disabled={!chat.canRevert}
-              onClick={chat.revertLastChanges}
-              data-haptic="selection"
-              title="Revert last changes"
-              className={cn(
-                'min-h-[40px] px-3 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5',
-                chat.canRevert
-                  ? 'border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40'
-                  : 'border border-border/40 text-muted-foreground/40 cursor-not-allowed',
-              )}
-            >
-              <Undo2 className="w-3.5 h-3.5" />
-              Revert
-            </button>
-            <button
-              type="button"
-              disabled={!chat.canSave || saveSuccess}
-              onClick={handleSave}
-              data-haptic="success"
-              className={cn(
-                'min-h-[40px] px-4 rounded-lg font-mono text-xs font-bold tracking-widest uppercase transition-opacity',
-                chat.canSave && !saveSuccess
-                  ? 'bg-neon-orange text-primary-foreground'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed',
-              )}
-            >
-              {chat.isSaving ? 'Saving…' : saveSuccess ? 'Saved' : 'Save'}
-            </button>
-          </div>
         </div>
       </header>
 
@@ -262,16 +223,12 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
           {chat.messages.length === 0 && (
             <div className="home-surface border border-border rounded-lg p-4">
               <p className="font-sans text-sm text-foreground mb-1">
-                {mode === 'create'
-                  ? 'Tell me what kind of program you want.'
-                  : mode === 'edit'
-                    ? 'Your current plan is loaded. Say what to change.'
-                    : 'Ask questions about your current plan — form, progressions, swaps, whatever.'}
+                Ask about your current plan, or say what you want to change — form, progressions,
+                swaps, a full redesign, whatever.
               </p>
               <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-                {mode === 'discuss'
-                  ? 'I’ll answer using your active program. If you want changes, ask and I’ll confirm before rewriting.'
-                  : 'When the draft looks right, hit Save. I’ll convert it into the app’s program format.'}
+                I’ll confirm proposed changes before rewriting anything. Use the Confirm prompt
+                below to approve, then View Plan and Save when you’re happy with the draft.
               </p>
             </div>
           )}
@@ -329,7 +286,69 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
       </main>
 
       <footer className="relative z-10 shrink-0 border-t border-border/60 bg-background/90 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-end gap-2">
+        {showAnyPrompt && (
+          <div
+            className="max-w-2xl mx-auto px-4 pt-3 flex items-center gap-2 overflow-x-auto scrollbar-none"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {showConfirm && (
+              <button
+                type="button"
+                onClick={() => void sendPrewritten('Confirm')}
+                data-haptic="selection"
+                className="shrink-0 min-h-[32px] px-3 rounded-full font-mono text-[11px] font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5 border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40"
+              >
+                <Check className="w-3 h-3" />
+                Confirm
+              </button>
+            )}
+            {showViewPlan && (
+              <button
+                type="button"
+                onClick={openPlanPreview}
+                data-haptic="selection"
+                title={hasRevisedPlan ? 'View revised plan' : 'View current plan'}
+                className="relative shrink-0 min-h-[32px] px-3 rounded-full font-mono text-[11px] font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5 border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40"
+              >
+                <FileText className="w-3 h-3" />
+                View Plan
+                {hasUnseenRevision && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-neon-orange animate-pulse" />
+                )}
+              </button>
+            )}
+            {showRevert && (
+              <button
+                type="button"
+                onClick={chat.revertLastChanges}
+                data-haptic="selection"
+                title="Revert last changes"
+                className="shrink-0 min-h-[32px] px-3 rounded-full font-mono text-[11px] font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5 border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40"
+              >
+                <Undo2 className="w-3 h-3" />
+                Revert
+              </button>
+            )}
+            {showSave && (
+              <button
+                type="button"
+                disabled={!chat.canSave || saveSuccess}
+                onClick={handleSave}
+                data-haptic="success"
+                className={cn(
+                  'shrink-0 min-h-[32px] px-3 rounded-full font-mono text-[11px] font-bold tracking-widest uppercase transition-opacity inline-flex items-center gap-1.5',
+                  chat.canSave && !saveSuccess
+                    ? 'bg-neon-orange text-primary-foreground'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed',
+                )}
+              >
+                <Save className="w-3 h-3" />
+                {chat.isSaving ? 'Saving…' : saveSuccess ? 'Saved' : 'Save'}
+              </button>
+            )}
+          </div>
+        )}
+        <div className="max-w-2xl mx-auto px-4 pt-2 pb-3 flex items-end gap-2">
           <textarea
             ref={textareaRef}
             value={input}
