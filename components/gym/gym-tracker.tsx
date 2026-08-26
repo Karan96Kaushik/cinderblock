@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import {
   getProgramWorkout,
+  getWorkoutLabel,
   isProgramWorkoutKey,
   isTimedHoldExercise,
   REST_DAY_KEY,
@@ -28,7 +29,7 @@ import { WorkoutSelector } from './workout-selector'
 import { WorkoutFlow } from './workout-flow'
 
 export type { ProgramExercise, ProgramWorkoutKey, WorkoutKey } from '@/lib/program'
-export { getWorkoutLabel, program } from '@/lib/program'
+export { getWorkoutLabel, getWorkoutLogLabel, program } from '@/lib/program'
 
 export type SetLog = { weight: string; reps: string; seconds?: string }
 
@@ -53,6 +54,12 @@ export type DayLog = {
   workoutKey: WorkoutKey | string
   exercises: Record<string, ExerciseLog>
   programVersion?: string
+  /**
+   * Display name of the workout at the time it was logged. Persisted so
+   * history keeps showing the name a workout had when logged, even if it's
+   * later renamed or removed from the active program.
+   */
+  workoutName?: string
 }
 
 export type GymStore = Record<string, DayLog>
@@ -302,8 +309,9 @@ export function GymTracker({ onBack }: GymTrackerProps) {
       const currentProgram = getActiveProgram()
       saveStore({
         ...store,
-        [selectedDate]: { 
-          workoutKey: key, 
+        [selectedDate]: {
+          workoutKey: key,
+          workoutName: getWorkoutLabel(key),
           exercises: initExercises(key),
           programVersion: currentProgram.version,
         },
@@ -342,6 +350,10 @@ export function GymTracker({ onBack }: GymTrackerProps) {
 
   const handleExploreStartTraining = () => {
     navigate(paths.gym({ date: today, view: 'select' }))
+  }
+
+  const handleEditProgram = () => {
+    navigate(paths.programEditor())
   }
 
   const handleSaveExerciseVideo = (exerciseName: string, url: string) => {
@@ -390,6 +402,7 @@ export function GymTracker({ onBack }: GymTrackerProps) {
             onSelectWorkout={handleExploreWorkout}
             onBack={handleExploreBack}
             onStartTraining={handleExploreStartTraining}
+            onEditProgram={handleEditProgram}
           />
         )}
 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format, parseISO, subDays } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
 import {
   Bell,
   BellOff,
@@ -8,7 +7,6 @@ import {
   ChevronUp,
   Cloud,
   Download,
-  Edit3,
   Footprints,
   Loader2,
   RotateCcw,
@@ -37,14 +35,15 @@ import {
 import {
   getSelectableWorkoutKeys,
   getWorkoutLabel,
+  getWorkoutLogLabel,
   REST_DAY_KEY,
   type WorkoutKey,
 } from '@/lib/program'
 import { getActiveProgram } from '@/lib/active-plan'
 import { useActiveProgram } from '@/hooks/use-active-program'
+import { useLoggedProgram } from '@/hooks/use-logged-program'
 import type { GymStore } from '@/components/gym/gym-tracker'
 import { getDayStatus, initExercises } from '@/components/gym/gym-tracker'
-import { paths } from '@/lib/routes'
 import {
   clearRunLog,
   deleteRunSession,
@@ -79,7 +78,6 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
-  const navigate = useNavigate()
   const { program, programId } = useActiveProgram()
   const { settings, setFontSize, setFontPreset, setTheme, resetSettings, replaceSettings } =
     useSettings()
@@ -130,8 +128,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       const currentProgram = getActiveProgram()
       persistGym({
         ...gymStore,
-        [date]: { 
-          workoutKey: key, 
+        [date]: {
+          workoutKey: key,
+          workoutName: getWorkoutLabel(key),
           exercises: initExercises(key),
           programVersion: currentProgram.version,
         },
@@ -202,7 +201,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           programName={program.name}
           programVersion={program.version}
           workoutCount={Object.keys(program.workouts).length}
-          onEdit={() => navigate(paths.programEditor())}
         />
 
         <AppearanceSection
@@ -1093,84 +1091,17 @@ function WorkoutHistorySection({
         </p>
       ) : (
         <div className="space-y-2 mb-4">
-          {entries.map(({ date, log }) => {
-            const status = getDayStatus(log)
-            const isExpanded = expandedDate === date
-            const completed = Object.values(log.exercises).filter((e) => e.completed).length
-            const total = Object.keys(log.exercises).length
-
-            return (
-              <div
-                key={date}
-                className={cn(
-                  'border rounded-lg transition-colors',
-                  isExpanded ? 'border-neon-orange/40 bg-neon-orange/5' : 'border-border bg-card/30',
-                )}
-              >
-                <button
-                  onClick={() => onToggleExpand(date)}
-                  data-haptic="selection"
-                  className="w-full flex items-center justify-between gap-3 p-3 min-h-[52px] text-left"
-                >
-                  <div>
-                    <div className="font-sans text-sm font-bold text-foreground">
-                      {format(parseISO(date + 'T12:00:00'), 'EEE, MMM d yyyy')}
-                    </div>
-                    <div className="font-mono text-xs text-muted-foreground mt-0.5">
-                      {getWorkoutLabel(log.workoutKey)}
-                      {status === 'complete' && total > 0 && ` · ${completed}/${total} done`}
-                      {status === 'partial' && total > 0 && ` · ${completed}/${total} in progress`}
-                      {status === 'rest' && ' · logged'}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <StatusBadge status={status} />
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="px-3 pb-3 space-y-3 border-t border-border/50 pt-3">
-                    <div>
-                      <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
-                        Change workout
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {getSelectableWorkoutKeys().map((key) => (
-                          <button
-                            key={key}
-                            onClick={() => onChangeWorkout(date, key)}
-                            data-haptic="selection"
-                            className={cn(
-                              'min-h-[36px] rounded-md border font-mono text-xs transition-colors',
-                              log.workoutKey === key
-                                ? 'bg-neon-orange/20 border-neon-orange/50 text-neon-orange'
-                                : 'border-border text-muted-foreground hover:border-muted-foreground',
-                            )}
-                          >
-                            {getWorkoutLabel(key)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => onDelete(date)}
-                      data-haptic="warning"
-                      className="w-full min-h-[40px] rounded-lg border border-neon-red/30 font-mono text-xs tracking-wider uppercase text-neon-red hover:bg-neon-red/10 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Remove this entry
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {entries.map(({ date, log }) => (
+            <WorkoutHistoryEntry
+              key={date}
+              date={date}
+              log={log}
+              isExpanded={expandedDate === date}
+              onToggleExpand={onToggleExpand}
+              onDelete={onDelete}
+              onChangeWorkout={onChangeWorkout}
+            />
+          ))}
         </div>
       )}
 
@@ -1213,6 +1144,100 @@ function WorkoutHistorySection({
         </div>
       )}
     </SectionCard>
+  )
+}
+
+function WorkoutHistoryEntry({
+  date,
+  log,
+  isExpanded,
+  onToggleExpand,
+  onDelete,
+  onChangeWorkout,
+}: {
+  date: string
+  log: GymStore[string]
+  isExpanded: boolean
+  onToggleExpand: (date: string) => void
+  onDelete: (date: string) => void
+  onChangeWorkout: (date: string, key: WorkoutKey) => void
+}) {
+  // Resolve the program the log was actually recorded against, so renamed or
+  // removed workouts still display the name they had at the time.
+  const { program: resolvedProgram } = useLoggedProgram(log)
+  const status = getDayStatus(log)
+  const completed = Object.values(log.exercises).filter((e) => e.completed).length
+  const total = Object.keys(log.exercises).length
+
+  return (
+    <div
+      className={cn(
+        'border rounded-lg transition-colors',
+        isExpanded ? 'border-neon-orange/40 bg-neon-orange/5' : 'border-border bg-card/30',
+      )}
+    >
+      <button
+        onClick={() => onToggleExpand(date)}
+        data-haptic="selection"
+        className="w-full flex items-center justify-between gap-3 p-3 min-h-[52px] text-left"
+      >
+        <div>
+          <div className="font-sans text-sm font-bold text-foreground">
+            {format(parseISO(date + 'T12:00:00'), 'EEE, MMM d yyyy')}
+          </div>
+          <div className="font-mono text-xs text-muted-foreground mt-0.5">
+            {getWorkoutLogLabel(log, resolvedProgram)}
+            {status === 'complete' && total > 0 && ` · ${completed}/${total} done`}
+            {status === 'partial' && total > 0 && ` · ${completed}/${total} in progress`}
+            {status === 'rest' && ' · logged'}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={status} />
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-3 pb-3 space-y-3 border-t border-border/50 pt-3">
+          <div>
+            <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+              Change workout
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {getSelectableWorkoutKeys().map((key) => (
+                <button
+                  key={key}
+                  onClick={() => onChangeWorkout(date, key)}
+                  data-haptic="selection"
+                  className={cn(
+                    'min-h-[36px] rounded-md border font-mono text-xs transition-colors',
+                    log.workoutKey === key
+                      ? 'bg-neon-orange/20 border-neon-orange/50 text-neon-orange'
+                      : 'border-border text-muted-foreground hover:border-muted-foreground',
+                  )}
+                >
+                  {getWorkoutLabel(key)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => onDelete(date)}
+            data-haptic="warning"
+            className="w-full min-h-[40px] rounded-lg border border-neon-red/30 font-mono text-xs tracking-wider uppercase text-neon-red hover:bg-neon-red/10 transition-colors flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Remove this entry
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1430,34 +1455,25 @@ interface ProgramSectionProps {
   programName: string
   programVersion: string
   workoutCount: number
-  onEdit: () => void
 }
 
-function ProgramSection({ programName, programVersion, workoutCount, onEdit }: ProgramSectionProps) {
+function ProgramSection({ programName, programVersion, workoutCount }: ProgramSectionProps) {
   return (
     <SectionCard title="Program">
-      <div className="space-y-4">
-        <div>
-          <p className="font-sans text-lg font-bold text-foreground mb-1">{programName}</p>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-muted-foreground">
-              Version {programVersion}
-            </span>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-xs text-muted-foreground">
-              {workoutCount} workout{workoutCount !== 1 ? 's' : ''}
-            </span>
-          </div>
+      <div>
+        <p className="font-sans text-lg font-bold text-foreground mb-1">{programName}</p>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs text-muted-foreground">
+            Version {programVersion}
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {workoutCount} workout{workoutCount !== 1 ? 's' : ''}
+          </span>
         </div>
-
-        <button
-          onClick={onEdit}
-          data-haptic="selection"
-          className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
-        >
-          <Edit3 className="w-4 h-4" />
-          <span>Edit Program</span>
-        </button>
+        <p className="font-mono text-xs text-muted-foreground mt-3 leading-relaxed">
+          To edit workouts, go to Training log → Explore → Edit.
+        </p>
       </div>
     </SectionCard>
   )

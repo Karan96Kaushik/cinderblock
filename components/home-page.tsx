@@ -5,12 +5,13 @@ import {
   getProgramWorkoutKeys,
   getScheduleHint,
   getScheduleSectionLabel,
-  getWorkoutLabel,
+  getWorkoutLogLabel,
   getWorkoutTextColorClass,
   REST_DAY_KEY,
   type ProgramWorkoutKey,
 } from '@/lib/program'
 import { useActiveProgram } from '@/hooks/use-active-program'
+import { useLoggedProgram } from '@/hooks/use-logged-program'
 import { formatProgramVersionLabel } from '@/lib/program-version'
 import { CyberGrid } from '@/components/cyber-grid'
 import { CyberHeader } from '@/components/cyber-header'
@@ -129,12 +130,13 @@ function getCurrentWeekActivities(store: GymStore, runs: RunSessionLog[]): WeekA
 function WeekWorkoutRow({ date, log }: { date: string; log: DayLog }) {
   const status = getDayStatus(log)
   const displayDate = format(parseISO(`${date}T12:00:00`), 'EEE, MMM d')
+  const { program: resolvedProgram } = useLoggedProgram(log)
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
       <span className="font-mono text-xs text-muted-foreground w-[88px] shrink-0">{displayDate}</span>
       <span className="font-sans text-sm text-foreground flex-1 min-w-0 truncate">
-        {formatDayLogSummary(log)}
+        {formatDayLogSummary(log, resolvedProgram)}
       </span>
       <span
         className={cn(
@@ -198,6 +200,7 @@ export function HomePage({
   const scheduleEntries = Object.entries(program.schedule)
 
   const incompleteWorkout = getIncompleteWorkoutEntry(store)
+  const { program: incompleteWorkoutProgram } = useLoggedProgram(incompleteWorkout?.log)
   const lastWorkout = getLastWorkoutEntry(store)
   const lastRun = getLastRun(runs)
   const weekActivities = getCurrentWeekActivities(store, runs)
@@ -281,7 +284,7 @@ export function HomePage({
                   data-haptic="success"
                   className="flex-1 min-h-[48px] px-6 rounded-lg font-mono text-sm font-bold tracking-widest uppercase bg-neon-orange text-primary-foreground hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange flex items-center justify-center gap-2"
                 >
-                  Continue {getWorkoutLabel(incompleteWorkout.log.workoutKey)}
+                  Continue {getWorkoutLogLabel(incompleteWorkout.log, incompleteWorkoutProgram)}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               ) : (
@@ -326,7 +329,7 @@ export function HomePage({
 
             {incompleteWorkout && (
               <p className="font-mono text-xs text-muted-foreground mt-3">
-                {getWorkoutLabel(incompleteWorkout.log.workoutKey)} from{' '}
+                {getWorkoutLogLabel(incompleteWorkout.log, incompleteWorkoutProgram)} from{' '}
                 {format(parseISO(`${incompleteWorkout.date}T12:00:00`), 'EEE, MMM d')} — unfinished
               </p>
             )}

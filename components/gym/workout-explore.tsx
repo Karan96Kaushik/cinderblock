@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Timer } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Edit3, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   getProgramWorkout,
@@ -22,6 +22,7 @@ interface WorkoutExploreProps {
   onSelectWorkout: (key: ProgramWorkoutKey) => void
   onBack: () => void
   onStartTraining: () => void
+  onEditProgram: () => void
 }
 
 function ExercisePreview({
@@ -111,6 +112,7 @@ export function WorkoutExplore({
   onSelectWorkout,
   onBack,
   onStartTraining,
+  onEditProgram,
 }: WorkoutExploreProps) {
   const workoutKeys = getProgramWorkoutKeys()
   const selectedKey =
@@ -190,12 +192,25 @@ export function WorkoutExplore({
           <span className="font-mono text-xs">Training log</span>
         </button>
 
-        <h1 className="font-sans text-2xl font-bold fire-gradient-text tracking-wider">
-          EXPLORE WORKOUT
-        </h1>
-        <p className="font-mono text-xs text-muted-foreground mt-2 leading-relaxed">
-          {program.name} — preview exercises, sets, and notes without starting a session.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="font-sans text-2xl font-bold fire-gradient-text tracking-wider">
+              EXPLORE WORKOUT
+            </h1>
+            <p className="font-mono text-xs text-muted-foreground mt-2 leading-relaxed">
+              {program.name} — preview exercises, sets, and notes without starting a session.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onEditProgram}
+            data-haptic="selection"
+            className="shrink-0 min-h-[36px] px-3 rounded-lg border border-neon-orange/40 font-mono text-[11px] font-bold tracking-wider uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors inline-flex items-center gap-1.5"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            Edit
+          </button>
+        </div>
       </div>
 
       <div className="px-4 space-y-3">

@@ -3,10 +3,12 @@ import { Check, ChevronRight, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   getWorkoutLabel,
+  getWorkoutLogLabel,
   isProgramWorkoutKey,
   REST_DAY_KEY,
   type ProgramExercise,
 } from '@/lib/program'
+import type { ProgramDocument } from '@/lib/program-json'
 import type { DayLog, ExerciseLog, GymStore } from './gym-tracker'
 import {
   formatSetSummary,
@@ -142,7 +144,7 @@ export function WorkoutSessionDetails({
               </h3>
               <div className="flex items-center gap-2 mt-1">
                 <p className="font-sans text-lg font-bold text-foreground">
-                  {getWorkoutLabel(log.workoutKey)}
+                  {getWorkoutLogLabel(log, resolvedProgram)}
                 </p>
                 {isHistorical && log.programVersion && (
                   <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
@@ -226,14 +228,14 @@ function DayStatusBadge({ status }: { status: ReturnType<typeof getDayStatus> })
 }
 
 /** Summary line for a day entry in lists */
-export function formatDayLogSummary(log: GymStore[string]): string {
+export function formatDayLogSummary(log: GymStore[string], sourceProgram?: ProgramDocument): string {
   const status = getDayStatus(log)
   const total = Object.keys(log.exercises).length
   const completed = Object.values(log.exercises).filter((e) => e.completed).length
   const withSets = Object.values(log.exercises).filter((e) => formatSetSummary(e)).length
 
-  if (status === 'rest') return getWorkoutLabel(REST_DAY_KEY)
-  const label = getWorkoutLabel(log.workoutKey)
+  if (status === 'rest') return getWorkoutLabel(REST_DAY_KEY, sourceProgram)
+  const label = getWorkoutLogLabel(log, sourceProgram)
   if (status === 'complete') return `${label} · ${completed}/${total} done`
   if (withSets > 0) {
     return `${label} · ${completed}/${total} done · ${withSets} logged`
