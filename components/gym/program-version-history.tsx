@@ -21,7 +21,8 @@ interface ProgramVersionHistoryProps {
 }
 
 export function ProgramVersionHistory({ currentVersion }: ProgramVersionHistoryProps) {
-  const { userId } = useAuth()
+  const { user } = useAuth()
+  const userId = user?.id
   const [isExpanded, setIsExpanded] = useState(false)
   const [versions, setVersions] = useState<ProgramVersionRecord[]>([])
   const [loading, setLoading] = useState(false)

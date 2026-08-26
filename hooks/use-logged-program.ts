@@ -16,7 +16,8 @@ export function useLoggedProgram(log: DayLog | undefined): {
   isHistorical: boolean
   loading: boolean
 } {
-  const { userId } = useAuth()
+  const { user } = useAuth()
+  const userId = user?.id
   const [program, setProgram] = useState<ProgramDocument>(() => getActiveProgram())
   const [programId, setProgramId] = useState<string>(() => getActiveProgramId())
   const [isHistorical, setIsHistorical] = useState(false)

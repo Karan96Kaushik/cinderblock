@@ -22,7 +22,8 @@ interface ProgramEditorPageProps {
 
 export function ProgramEditorPage({ onBack }: ProgramEditorPageProps) {
   const navigate = useNavigate()
-  const { userId } = useAuth()
+  const { user } = useAuth()
+  const userId = user?.id
   const { program: activeProgram, programId } = useActiveProgram()
   const [editedProgram, setEditedProgram] = useState<ProgramDocument>(() =>
     structuredClone(activeProgram)

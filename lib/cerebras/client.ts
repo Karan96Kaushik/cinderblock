@@ -7,7 +7,8 @@ import type {
 } from './types'
 
 const DEFAULT_BASE_URL = 'https://api.cerebras.ai/v1'
-const DEFAULT_MODEL = 'gemma-4-31b'
+// const DEFAULT_MODEL = 'gemma-4-31b'
+const DEFAULT_MODEL = 'gpt-oss-120b'
 
 /** Amplify Gen 2 injects this until `ampx sandbox secret set` resolves SSM. */
 const AMPLIFY_SSM_PLACEHOLDER = '<value will be resolved during runtime>'
