@@ -49,10 +49,39 @@ export function isWorkoutKey(key: string): key is WorkoutKey {
   return key === REST_DAY_KEY || isProgramWorkoutKey(key)
 }
 
-export function getWorkoutLabel(key: WorkoutKey | string): string {
+/**
+ * Resolve the display name for a workout key.
+ *
+ * Pass the `ProgramDocument` a log actually belongs to (e.g. from
+ * `useLoggedProgram`) so historical logs keep showing the name they were
+ * logged under, even if the current active program has since renamed or
+ * removed that workout key. Falls back to the current active program, and
+ * finally to the raw key if it can't be found anywhere.
+ */
+export function getWorkoutLabel(key: WorkoutKey | string, sourceProgram: ProgramDocument = program): string {
   if (key === REST_DAY_KEY) return REST_DAY_LABEL
+  const sourceWorkouts = sourceProgram.workouts as Record<string, { name: string }>
+  if (Object.prototype.hasOwnProperty.call(sourceWorkouts, key)) return sourceWorkouts[key].name
   if (isProgramWorkoutKey(key)) return program.workouts[key].name
   return key
+}
+
+/**
+ * Resolve the display name for a logged workout day.
+ *
+ * Prefers the `workoutName` saved on the log itself (captured at the time it
+ * was logged), so history keeps the original name even after the workout is
+ * renamed or removed from the program. Falls back to a program-based lookup,
+ * and ultimately to the raw key, for older logs saved before `workoutName`
+ * was recorded.
+ */
+export function getWorkoutLogLabel(
+  log: { workoutKey: WorkoutKey | string; workoutName?: string },
+  sourceProgram?: ProgramDocument,
+): string {
+  if (log.workoutKey === REST_DAY_KEY) return REST_DAY_LABEL
+  if (log.workoutName) return log.workoutName
+  return getWorkoutLabel(log.workoutKey, sourceProgram)
 }
 
 export function getSelectableWorkoutKeys(): WorkoutKey[] {

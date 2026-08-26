@@ -1,9 +1,9 @@
 {
   "version": "1.4",
   "custom": {
-    "testFunctionUrl": "https://cqvy4p2soqtmrottpfh7cymjba0hrpqm.lambda-url.ap-south-1.on.aws/",
-    "aiExtractJsonUrl": "https://vnwsdnlffd5c5w4iszten7edli0vncxy.lambda-url.ap-south-1.on.aws/",
-    "aiChatUrl": "https://nlc3rezklydutlayorxash7bkq0rjdnu.lambda-url.ap-south-1.on.aws/",
-    "reportIssueUrl": "https://wulsrpdjcf7fe2g4kx7lea5mpm0jvlco.lambda-url.ap-south-1.on.aws/"
+    "testFunctionUrl": "https://zr4cu7whqztzw53ym5xl4ojjgu0krjzz.lambda-url.ap-south-1.on.aws/",
+    "aiExtractJsonUrl": "https://gywt7vutv4fc74pmx6ij5tquki0ptnli.lambda-url.ap-south-1.on.aws/",
+    "aiChatUrl": "https://lqexdakmixy5biirtbiqs54rcm0lcvep.lambda-url.ap-south-1.on.aws/",
+    "reportIssueUrl": "https://c7mc7kgcaya4pngvefaq6vy5ia0fgovs.lambda-url.ap-south-1.on.aws/"
   }
 }

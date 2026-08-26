@@ -9,6 +9,7 @@ import { GymTracker } from '@/components/gym/gym-tracker'
 import { MetricsTracker } from '@/components/metrics/metrics-tracker'
 import { RunningTracker } from '@/components/running/running-tracker'
 import { SettingsPage } from '@/components/settings/settings-page'
+import { ProgramEditorPage } from '@/components/program-editor/program-editor-page'
 import { AiChatPage } from '@/components/gym/ai-chat/ai-chat-page'
 import { LoginScreen, hasSkippedLogin } from '@/components/auth/login-screen'
 import { paths, type AiChatModeParam } from '@/lib/routes'
@@ -83,6 +84,7 @@ function AppRoutes() {
         <Route path="/running/*" element={<RunningTracker onBack={() => navigate(paths.home())} />} />
         <Route path="/metrics" element={<MetricsTracker onBack={() => navigate(paths.home())} />} />
         <Route path="/settings" element={<SettingsPage onBack={() => navigate(paths.home())} />} />
+        <Route path="/program-editor" element={<ProgramEditorPage onBack={() => navigate(paths.home())} />} />
         <Route path="/ai-chat/:mode" element={<AiChatRoute />} />
         <Route path="*" element={<Navigate to={paths.home()} replace />} />
       </Routes>

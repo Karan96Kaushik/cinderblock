@@ -26,6 +26,7 @@ export const paths = {
     view === 'session' ? '/running/session' : '/running',
   metrics: () => '/metrics',
   settings: () => '/settings',
+  programEditor: () => '/program-editor',
   aiChat: (mode: AiChatModeParam = 'edit') => `/ai-chat/${mode}`,
 }
 

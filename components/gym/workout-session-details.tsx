@@ -3,11 +3,12 @@ import { Check, ChevronRight, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   getWorkoutLabel,
+  getWorkoutLogLabel,
   isProgramWorkoutKey,
-  program,
   REST_DAY_KEY,
   type ProgramExercise,
 } from '@/lib/program'
+import type { ProgramDocument } from '@/lib/program-json'
 import type { DayLog, ExerciseLog, GymStore } from './gym-tracker'
 import {
   formatSetSummary,
@@ -16,12 +17,15 @@ import {
   hasLoggedSetData,
   isExerciseAddressed,
 } from './gym-tracker'
+import { useLoggedProgram } from '@/hooks/use-logged-program'
+import { ProgramVersionHistory } from './program-version-history'
 
 interface WorkoutSessionDetailsProps {
   date: string
   log: DayLog | undefined
   onOpenWorkout?: () => void
   onStartWorkout?: () => void
+  showVersionHistory?: boolean
 }
 
 const STATUS_LABELS = {
@@ -86,9 +90,11 @@ export function WorkoutSessionDetails({
   log,
   onOpenWorkout,
   onStartWorkout,
+  showVersionHistory = false,
 }: WorkoutSessionDetailsProps) {
   const displayDate = format(parseISO(date + 'T12:00:00'), 'EEEE, MMM d')
   const status = getDayStatus(log)
+  const { program: resolvedProgram, isHistorical } = useLoggedProgram(log)
 
   if (!log) {
     return (
@@ -115,7 +121,7 @@ export function WorkoutSessionDetails({
 
   const workout =
     log.workoutKey !== REST_DAY_KEY && isProgramWorkoutKey(log.workoutKey)
-      ? program.workouts[log.workoutKey]
+      ? resolvedProgram.workouts[log.workoutKey]
       : undefined
   const exercises: ProgramExercise[] =
     workout?.exercises ??
@@ -128,63 +134,76 @@ export function WorkoutSessionDetails({
   const total = exercises.length
 
   return (
-    <div className="px-4 mb-6">
-      <div className="bg-card/40 border border-border rounded-xl p-4">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <h3 className="font-mono text-xs text-neon-orange uppercase tracking-wider">
-              {displayDate}
-            </h3>
-            <p className="font-sans text-lg font-bold text-foreground mt-1">
-              {getWorkoutLabel(log.workoutKey)}
-            </p>
-            <p className="font-mono text-xs text-muted-foreground mt-0.5">
-              {status === 'complete' && total > 0 && `${completed}/${total} exercises complete`}
-              {status === 'partial' &&
-                total > 0 &&
-                `${completed} done · ${skipped} skipped · ${logged} with sets logged`}
-              {status === 'rest' && 'Rest day logged'}
-            </p>
+    <>
+      <div className="px-4 mb-6">
+        <div className="bg-card/40 border border-border rounded-xl p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-mono text-xs text-neon-orange uppercase tracking-wider">
+                {displayDate}
+              </h3>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="font-sans text-lg font-bold text-foreground">
+                  {getWorkoutLogLabel(log, resolvedProgram)}
+                </p>
+                {isHistorical && log.programVersion && (
+                  <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    v{log.programVersion}
+                  </span>
+                )}
+              </div>
+              <p className="font-mono text-xs text-muted-foreground mt-0.5">
+                {status === 'complete' && total > 0 && `${completed}/${total} exercises complete`}
+                {status === 'partial' &&
+                  total > 0 &&
+                  `${completed} done · ${skipped} skipped · ${logged} with sets logged`}
+                {status === 'rest' && 'Rest day logged'}
+              </p>
+            </div>
+            <DayStatusBadge status={status} />
           </div>
-          <DayStatusBadge status={status} />
+
+          {log.workoutKey !== REST_DAY_KEY && exercises.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {exercises.map((exercise) => (
+                <ExerciseDetailRow
+                  key={exercise.name}
+                  name={exercise.name}
+                  log={log.exercises[exercise.name]}
+                />
+              ))}
+            </div>
+          )}
+
+          {onOpenWorkout && log.workoutKey !== REST_DAY_KEY && (
+            <button
+              type="button"
+              onClick={onOpenWorkout}
+              data-haptic="selection"
+              className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
+            >
+              {status === 'complete' ? 'Review workout' : 'Continue workout'}
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {onStartWorkout && log.workoutKey === REST_DAY_KEY && (
+            <button
+              type="button"
+              onClick={onStartWorkout}
+              data-haptic="selection"
+              className="w-full min-h-[44px] rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors"
+            >
+              Change workout
+            </button>
+          )}
         </div>
-
-        {log.workoutKey !== REST_DAY_KEY && exercises.length > 0 && (
-          <div className="space-y-2 mb-4">
-            {exercises.map((exercise) => (
-              <ExerciseDetailRow
-                key={exercise.name}
-                name={exercise.name}
-                log={log.exercises[exercise.name]}
-              />
-            ))}
-          </div>
-        )}
-
-        {onOpenWorkout && log.workoutKey !== REST_DAY_KEY && (
-          <button
-            type="button"
-            onClick={onOpenWorkout}
-            data-haptic="selection"
-            className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 font-mono text-xs font-bold tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors flex items-center justify-center gap-2"
-          >
-            {status === 'complete' ? 'Review workout' : 'Continue workout'}
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        )}
-
-        {onStartWorkout && log.workoutKey === REST_DAY_KEY && (
-          <button
-            type="button"
-            onClick={onStartWorkout}
-            data-haptic="selection"
-            className="w-full min-h-[44px] rounded-lg border border-border font-mono text-xs tracking-widest uppercase text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors"
-          >
-            Change workout
-          </button>
-        )}
       </div>
-    </div>
+      
+      {showVersionHistory && (
+        <ProgramVersionHistory currentVersion={resolvedProgram.version} />
+      )}
+    </>
   )
 }
 
@@ -209,14 +228,14 @@ function DayStatusBadge({ status }: { status: ReturnType<typeof getDayStatus> })
 }
 
 /** Summary line for a day entry in lists */
-export function formatDayLogSummary(log: GymStore[string]): string {
+export function formatDayLogSummary(log: GymStore[string], sourceProgram?: ProgramDocument): string {
   const status = getDayStatus(log)
   const total = Object.keys(log.exercises).length
   const completed = Object.values(log.exercises).filter((e) => e.completed).length
   const withSets = Object.values(log.exercises).filter((e) => formatSetSummary(e)).length
 
-  if (status === 'rest') return getWorkoutLabel(REST_DAY_KEY)
-  const label = getWorkoutLabel(log.workoutKey)
+  if (status === 'rest') return getWorkoutLabel(REST_DAY_KEY, sourceProgram)
+  const label = getWorkoutLogLabel(log, sourceProgram)
   if (status === 'complete') return `${label} · ${completed}/${total} done`
   if (withSets > 0) {
     return `${label} · ${completed}/${total} done · ${withSets} logged`
