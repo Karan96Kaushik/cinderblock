@@ -22,6 +22,9 @@ export type CerebrasResponseFormat =
   | { type: 'json_object' }
   | { type: 'json_schema'; jsonSchema: CerebrasJsonSchema }
 
+export type CerebrasReasoningFormat = 'parsed' | 'raw' | 'hidden' | 'none'
+export type CerebrasReasoningEffort = 'low' | 'medium' | 'high'
+
 export type CerebrasChatRequest = {
   model?: string
   messages: CerebrasMessage[]
@@ -30,6 +33,13 @@ export type CerebrasChatRequest = {
   maxTokens?: number
   /** When true, the API returns an SSE stream of token deltas. */
   stream?: boolean
+  /**
+   * How reasoning models (gpt-oss-120b, gemma-4-31b) return chain-of-thought.
+   * `parsed` puts thinking in `delta.reasoning` and the user-visible reply in
+   * `delta.content` — content does not start until reasoning finishes.
+   */
+  reasoningFormat?: CerebrasReasoningFormat
+  reasoningEffort?: CerebrasReasoningEffort
 }
 
 export type CerebrasUsage = {

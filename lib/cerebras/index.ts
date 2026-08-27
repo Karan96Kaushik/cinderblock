@@ -7,6 +7,8 @@ export type {
   CerebrasMessage,
   CerebrasRawChatCompletion,
   CerebrasRawErrorBody,
+  CerebrasReasoningEffort,
+  CerebrasReasoningFormat,
   CerebrasResponseFormat,
   CerebrasRole,
   CerebrasUsage,

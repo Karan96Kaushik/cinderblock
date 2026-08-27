@@ -10,6 +10,7 @@ import {
   type AiChatMode,
   type ChatTurn,
 } from '../../../lib/ai-chat/parse-sentinels'
+import { STREAM_FLUSH_PAD } from '../../../lib/ai-chat/stream-flush'
 import { parseJsonBody } from '../_shared/http'
 import { createLogger } from '../_shared/logger'
 import { checkRateLimit } from '../_shared/rateLimit'
@@ -66,6 +67,21 @@ function writeJsonError(
   })
   stream.write(JSON.stringify(body))
   stream.end()
+}
+
+/**
+ * Force Lambda RESPONSE_STREAM to actually send bytes. Small writes are held
+ * until ~100 KB or stream.end(); padding each flush makes tokens arrive live.
+ */
+async function writeFlushed(
+  stream: WritableResponseStream,
+  text: string,
+): Promise<void> {
+  if (!text) return
+  // Two writes: token text, then a ~100KB pad. Lambda flushes once the write
+  // is large enough; the pad is stripped by the browser client.
+  stream.write(text)
+  stream.write(STREAM_FLUSH_PAD)
 }
 
 async function streamHandler(
@@ -187,10 +203,29 @@ async function streamHandler(
 
     const stream = awslambda.HttpResponseStream.from(responseStream, {
       statusCode: 200,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Accel-Buffering': 'no',
+      },
     })
 
     try {
+      let pending = ''
+      let lastFlushAt = 0
+      const flushIfDue = async (force: boolean) => {
+        if (!pending) return
+        const now = Date.now()
+        const waited = lastFlushAt === 0 || now - lastFlushAt >= 80
+        const bulky = pending.length >= 80
+        // First tokens go out immediately; later batches every ~80ms or 80
+        // chars so we don't attach 100 KB of padding to every Cerebras event.
+        if (!force && !waited && !bulky) return
+        await writeFlushed(stream, pending)
+        pending = ''
+        lastFlushAt = now
+      }
+
       for await (const delta of client.streamChatCompletion({
         messages: [
           { role: 'system', content: system },
@@ -198,14 +233,18 @@ async function streamHandler(
         ],
         temperature: 0.6,
         maxTokens: 4096,
+        reasoningFormat: 'parsed',
       })) {
-        stream.write(delta)
+        pending += delta
+        await flushIfDue(false)
       }
+      await flushIfDue(true)
     } catch (err) {
       log.errorWithCause('cerebras.stream_failed', err, { ...base, userId: user.id })
       // Headers were already sent as 200 text/plain, so signal the failure with a
       // sentinel the client recognizes and converts into a thrown error.
-      stream.write(
+      await writeFlushed(
+        stream,
         `\n\n${STREAM_ERROR_MARKER} ${err instanceof Error ? err.message : 'Cerebras stream failed'}`,
       )
     }
