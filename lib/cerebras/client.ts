@@ -77,8 +77,10 @@ export class CerebrasClient {
   }
 
   /**
-   * Streaming chat completion. Yields text deltas as they arrive from Cerebras SSE.
-   * Callers must drain the iterator fully (or abort via AbortSignal).
+   * Streaming chat completion. Yields user-visible text deltas (`delta.content`).
+   * Reasoning models emit `delta.reasoning` first; those tokens are skipped here
+   * so the chat bubble does not show chain-of-thought. Callers must drain the
+   * iterator fully (or abort via AbortSignal).
    */
   async *streamChatCompletion(
     request: Omit<CerebrasChatRequest, 'stream'>,
@@ -124,11 +126,18 @@ export class CerebrasClient {
 
           try {
             const parsed = JSON.parse(data) as {
-              choices?: Array<{ delta?: { content?: string | null } }>
+              choices?: Array<{
+                delta?: {
+                  content?: string | null
+                  reasoning?: string | null
+                  reasoning_content?: string | null
+                }
+              }>
             }
-            const delta = parsed.choices?.[0]?.delta?.content
-            if (typeof delta === 'string' && delta.length > 0) {
-              yield delta
+            const delta = parsed.choices?.[0]?.delta
+            const content = delta?.content
+            if (typeof content === 'string' && content.length > 0) {
+              yield content
             }
           } catch {
             // Ignore malformed SSE chunks; continue streaming.
@@ -150,6 +159,8 @@ export class CerebrasClient {
     if (request.maxTokens !== undefined) body.max_tokens = request.maxTokens
     if (request.responseFormat) body.response_format = toResponseFormatPayload(request.responseFormat)
     if (request.stream) body.stream = true
+    if (request.reasoningFormat) body.reasoning_format = request.reasoningFormat
+    if (request.reasoningEffort) body.reasoning_effort = request.reasoningEffort
 
     return body
   }

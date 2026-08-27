@@ -44,7 +44,7 @@ function Bubble({ message }: { message: AiChatUiMessage }) {
         ) : message.content ? (
           <ChatMarkdown content={message.content} />
         ) : message.streaming ? (
-          '…'
+          <span className="text-muted-foreground">Thinking…</span>
         ) : null}
         {message.streaming && (
           <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-neon-orange/80 animate-pulse" />

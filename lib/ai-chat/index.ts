@@ -16,6 +16,7 @@ export {
   SUMMARY_START,
   trimRecentTurns,
 } from './parse-sentinels'
+export { STREAM_FLUSH_CHAR, STREAM_FLUSH_PAD, stripStreamFlushPad } from './stream-flush'
 export type {
   AiChatMode,
   ChatRole,

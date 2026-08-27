@@ -41,7 +41,7 @@ On turns where the user has confirmed and the draft plan changes (or when creati
 
 If the user payload includes a "Current plan" block, that is the exact, verbatim, current state of the plan — copy it line-for-line into your <<PLAN>> output and apply ONLY the confirmed edit to the specific line(s) it affects. Do not reconstruct the plan from the running summary or conversation history, and do not "helpfully" rephrase, reformat, reorder, or regenerate any line you were not asked to change.
 
-Always include an updated one-paragraph running summary of durable constraints and decisions inside:
+Always include an updated one-paragraph running summary of durable constraints and decisions AFTER the user-visible reply (never before it), inside:
 <<SUMMARY>>
 ...one paragraph...
 <<END_SUMMARY>>
