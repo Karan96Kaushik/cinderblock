@@ -93,11 +93,15 @@ export function parseAssistantPayload(
 /**
  * Hide half-written sentinel regions so the user doesn't see raw <<TAGS>>
  * flicker while tokens arrive.
+ *
+ * SUMMARY is trailing bookkeeping: an open <<SUMMARY>> hides from that tag to
+ * EOF so earlier user-facing text can still stream. If the model emits SUMMARY
+ * first, display stays empty until <<END_SUMMARY>> — prompts must keep SUMMARY last.
  */
 function scrubIncompleteSentinels(text: string): string {
   let working = text
 
-  // Open SUMMARY without END yet → hide from the tag to the end (it's trailing bookkeeping).
+  // Open SUMMARY without END yet → hide from the tag to the end (trailing bookkeeping).
   const summaryOpen = working.lastIndexOf(SUMMARY_START)
   if (summaryOpen !== -1 && !working.includes(SUMMARY_END, summaryOpen)) {
     working = working.slice(0, summaryOpen)

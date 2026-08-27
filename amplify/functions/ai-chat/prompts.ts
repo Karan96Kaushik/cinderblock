@@ -41,12 +41,16 @@ On turns where the user has confirmed and the draft plan changes (or when creati
 
 If the user payload includes a "Current plan" block, that is the exact, verbatim, current state of the plan — copy it line-for-line into your <<PLAN>> output and apply ONLY the confirmed edit to the specific line(s) it affects. Do not reconstruct the plan from the running summary or conversation history, and do not "helpfully" rephrase, reformat, reorder, or regenerate any line you were not asked to change.
 
-Always include an updated one-paragraph running summary of durable constraints and decisions inside:
+Mandatory message order (the UI streams tokens live — get this wrong and the reply looks blank until the end):
+1. User-facing reply first (coaching, questions, proposed changes).
+2. <<PLAN>>…<<END_PLAN>> next, only when you are actually rewriting the draft.
+3. Always close with an updated one-paragraph running summary of durable constraints and decisions:
 <<SUMMARY>>
 ...one paragraph...
 <<END_SUMMARY>>
+4. When the draft is complete, coherent, and the user has accepted it, append exactly <<PLAN_READY>> after the summary (absolute end of the message).
 
-When the draft is complete, coherent, and the user has accepted it, append exactly <<PLAN_READY>> at the very end of your message.
+Never put <<SUMMARY>> before the user-facing reply. Summary is trailing bookkeeping only.
 
 A separate auditor will reject plan rewrites that go beyond the user's request. Extra unsolicited edits will be discarded, so keep changes minimal.
 
@@ -82,7 +86,7 @@ export function buildChatUserPayload(args: {
 
   parts.push(`New user message:\n${args.newMessage.trim()}`)
   parts.push(
-    `Reminder: only make user-requested changes. If you would rewrite the plan, propose the changes and wait for confirmation before emitting <<PLAN>>.`,
+    `Reminder: only make user-requested changes. If you would rewrite the plan, propose the changes and wait for confirmation before emitting <<PLAN>>. Message order: user-facing reply (and <<PLAN>> if rewriting) first, then <<SUMMARY>>…<<END_SUMMARY>> last (<<PLAN_READY>> only after that when applicable).`,
   )
   return parts.join('\n\n---\n\n')
 }
