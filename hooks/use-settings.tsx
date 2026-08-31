@@ -10,6 +10,7 @@ import {
 } from 'react'
 import {
   applySettings,
+  DEFAULT_SETTINGS,
   readSettings,
   writeSettings,
   type AppSettings,
@@ -24,6 +25,8 @@ type SettingsContextValue = {
   setFontPreset: (preset: FontPresetKey) => void
   setTheme: (theme: ThemePresetKey) => void
   setAlwaysAwake: (enabled: boolean) => void
+  setSoundEnabled: (enabled: boolean) => void
+  setSoundVolume: (volume: number) => void
   replaceSettings: (next: AppSettings) => void
   resetSettings: () => void
 }
@@ -53,11 +56,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetSettings = useCallback(() => {
-    setSettings({ fontSize: 'md', fontPreset: 'cinderblock', theme: 'orange', alwaysAwake: true })
+    setSettings({
+      fontSize: DEFAULT_SETTINGS.fontSize,
+      fontPreset: DEFAULT_SETTINGS.fontPreset,
+      theme: DEFAULT_SETTINGS.theme,
+      alwaysAwake: DEFAULT_SETTINGS.alwaysAwake,
+      soundEnabled: DEFAULT_SETTINGS.soundEnabled,
+      soundVolume: DEFAULT_SETTINGS.soundVolume,
+    })
   }, [])
 
   const setAlwaysAwake = useCallback((alwaysAwake: boolean) => {
     setSettings((prev) => ({ ...prev, alwaysAwake }))
+  }, [])
+
+  const setSoundEnabled = useCallback((soundEnabled: boolean) => {
+    setSettings((prev) => ({ ...prev, soundEnabled }))
+  }, [])
+
+  const setSoundVolume = useCallback((soundVolume: number) => {
+    setSettings((prev) => ({ ...prev, soundVolume: Math.max(0, Math.min(1, soundVolume)) }))
   }, [])
 
   const replaceSettings = useCallback((next: AppSettings) => {
@@ -73,6 +91,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFontPreset,
       setTheme,
       setAlwaysAwake,
+      setSoundEnabled,
+      setSoundVolume,
       replaceSettings,
       resetSettings,
     }),
@@ -82,6 +102,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFontPreset,
       setTheme,
       setAlwaysAwake,
+      setSoundEnabled,
+      setSoundVolume,
       replaceSettings,
       resetSettings,
     ],

@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { ChevronRight, Pause, Play, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
+import { Sound } from '@/lib/sounds'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { useSettings } from '@/hooks/use-settings'
 import { useDeviceMusicPlaying } from '@/hooks/use-device-music-playing'
@@ -146,6 +147,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
     clearActiveRunSession()
     saveRunSession(logged, format(new Date(), 'yyyy-MM-dd'), early ? { endedEarly: true } : undefined)
     Haptic.success()
+    Sound.play('sessionComplete')
   }, [earlyLoggedPlan, halt, plan, runEndedEarly])
 
   const endRunEarly = useCallback(() => {
@@ -187,6 +189,7 @@ export function RunningFlow({ plan: planProp, onBack, onFinish }: RunningFlowPro
     syncEndAtFromPhaseStart(startedAt, nextIndex)
     setRunning(true)
     Haptic.success()
+    Sound.play('phaseChange')
   }, [completeSession, phaseIndex, plan, syncEndAtFromPhaseStart])
 
   useEffect(() => {
