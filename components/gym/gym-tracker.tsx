@@ -336,6 +336,10 @@ export function GymTracker({ onBack }: GymTrackerProps) {
     goToGym(selectedDate, 'select')
   }
 
+  const handleOpenLastWorkout = (date: string) => {
+    goToGym(date, 'workout')
+  }
+
   const handleExploreWorkout = (key: ProgramWorkoutKey) => {
     navigate(paths.gym({ view: 'explore', exploreWorkoutKey: key }))
   }
@@ -422,8 +426,10 @@ export function GymTracker({ onBack }: GymTrackerProps) {
         {view === 'select' && (
           <WorkoutSelector
             date={selectedDate}
+            store={store}
             existingKey={store[selectedDate]?.workoutKey}
             onSelect={handleSelectWorkout}
+            onOpenLastWorkout={handleOpenLastWorkout}
             onBack={handleBackToCalendar}
           />
         )}

@@ -37,13 +37,9 @@ import {
   getCurrentWeekEntries,
   getDayStatus,
   getIncompleteWorkoutEntry,
-  getLastWorkoutEntry,
   isExerciseAddressed,
 } from '@/components/gym/gym-tracker'
-import {
-  formatDayLogSummary,
-  WorkoutSessionDetails,
-} from '@/components/gym/workout-session-details'
+import { formatDayLogSummary } from '@/components/gym/workout-session-details'
 import { cn } from '@/lib/utils'
 
 interface HomePageProps {
@@ -197,7 +193,6 @@ export function HomePage({
 
   const incompleteWorkout = getIncompleteWorkoutEntry(store)
   const { program: incompleteWorkoutProgram } = useLoggedProgram(incompleteWorkout?.log)
-  const lastWorkout = getLastWorkoutEntry(store)
   const lastRun = getLastRun(runs)
   const weekActivities = getCurrentWeekActivities(store, runs)
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -379,20 +374,7 @@ export function HomePage({
             </div>
           </section>
 
-          {/* 3. Last workout / run */}
-          {lastWorkout && (
-            <section className="mb-10">
-              <SectionDivider label="LAST WORKOUT" />
-              <div className="-mx-4 home-page-panel">
-                <WorkoutSessionDetails
-                  date={lastWorkout.date}
-                  log={lastWorkout.log}
-                  onOpenWorkout={() => onContinueWorkout(lastWorkout.date)}
-                />
-              </div>
-            </section>
-          )}
-
+          {/* 3. Last run */}
           {lastRun && (
             <section className="mb-10">
               <SectionDivider label="LAST RUN" />

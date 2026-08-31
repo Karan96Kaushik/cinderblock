@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { GymStore } from './gym-tracker'
+import { getLastWorkoutEntry } from './gym-tracker'
+import { WorkoutSessionDetails } from './workout-session-details'
 import {
   getProgramWorkoutKeys,
   getScheduleHint,
@@ -18,15 +21,25 @@ import {
 
 interface WorkoutSelectorProps {
   date: string
+  store: GymStore
   existingKey?: WorkoutKey | string
   onSelect: (key: WorkoutKey) => void
+  onOpenLastWorkout: (date: string) => void
   onBack: () => void
 }
 
-export function WorkoutSelector({ date, existingKey, onBack, onSelect }: WorkoutSelectorProps) {
+export function WorkoutSelector({
+  date,
+  store,
+  existingKey,
+  onBack,
+  onOpenLastWorkout,
+  onSelect,
+}: WorkoutSelectorProps) {
   const [selected, setSelected] = useState<WorkoutKey | string | null>(existingKey ?? null)
   const displayDate = format(new Date(date + 'T12:00:00'), 'EEEE, MMMM d')
   const workoutKeys = getProgramWorkoutKeys()
+  const lastWorkout = getLastWorkoutEntry(store)
 
   const isResume = existingKey && existingKey !== REST_DAY_KEY && selected === existingKey
 
@@ -114,6 +127,19 @@ export function WorkoutSelector({ date, existingKey, onBack, onSelect }: Workout
           )}
         </button>
       </div>
+
+      {lastWorkout && (
+        <div className="px-4 mb-6">
+          <h3 className="font-mono text-xs text-neon-orange uppercase tracking-wider mb-3">
+            Last workout
+          </h3>
+          <WorkoutSessionDetails
+            date={lastWorkout.date}
+            log={lastWorkout.log}
+            onOpenWorkout={() => onOpenLastWorkout(lastWorkout.date)}
+          />
+        </div>
+      )}
 
       {/* Global notes preview */}
       <div className="px-4 mb-6">
