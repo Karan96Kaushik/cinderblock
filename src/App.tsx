@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { SettingsProvider } from '@/hooks/use-settings'
 import { HapticInit } from '@/components/haptic-init'
+import { SoundInit } from '@/components/sound-init'
 import { SupabaseCloudBridge } from '@/components/supabase-cloud-bridge'
 import { HomePage } from '@/components/home-page'
 import { GymTracker } from '@/components/gym/gym-tracker'
@@ -90,10 +91,12 @@ export default function App() {
   return (
     <HapticInit>
       <SettingsProvider>
-        <AuthProvider>
-          <SupabaseCloudBridge />
-          <AppRoutes />
-        </AuthProvider>
+        <SoundInit>
+          <AuthProvider>
+            <SupabaseCloudBridge />
+            <AppRoutes />
+          </AuthProvider>
+        </SoundInit>
       </SettingsProvider>
     </HapticInit>
   )

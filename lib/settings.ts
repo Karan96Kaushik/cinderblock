@@ -13,6 +13,8 @@ export type AppSettings = {
   fontPreset: FontPresetKey
   theme: ThemePresetKey
   alwaysAwake: boolean
+  soundEnabled: boolean
+  soundVolume: number
 }
 
 export const STORAGE_KEY = 'cinderblock_settings'
@@ -53,6 +55,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   fontPreset: 'cinderblock',
   theme: 'orange',
   alwaysAwake: true,
+  soundEnabled: true,
+  soundVolume: 0.7,
 }
 
 export function readSettings(): AppSettings {
@@ -66,6 +70,11 @@ export function readSettings(): AppSettings {
         parsed.fontPreset && parsed.fontPreset in FONT_PRESETS ? parsed.fontPreset : 'cinderblock',
       theme: normalizeThemeKey(parsed.theme),
       alwaysAwake: typeof parsed.alwaysAwake === 'boolean' ? parsed.alwaysAwake : true,
+      soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
+      soundVolume:
+        typeof parsed.soundVolume === 'number' && parsed.soundVolume >= 0 && parsed.soundVolume <= 1
+          ? parsed.soundVolume
+          : 0.7,
     }
   } catch {
     return DEFAULT_SETTINGS

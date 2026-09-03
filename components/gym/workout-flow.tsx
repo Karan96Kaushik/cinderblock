@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Sound } from '@/lib/sounds'
 import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
 import {
   Carousel,
@@ -73,6 +74,15 @@ export function WorkoutFlow({
   )
 
   usePreventPullToRefresh(scrollRef, currentStep)
+
+  const exerciseChangeMounted = useRef(false)
+  useEffect(() => {
+    if (!exerciseChangeMounted.current) {
+      exerciseChangeMounted.current = true
+      return
+    }
+    Sound.play('exerciseChange')
+  }, [currentStep])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' })
