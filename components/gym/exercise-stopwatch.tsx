@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
+import { Sound } from '@/lib/sounds'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { useSettings } from '@/hooks/use-settings'
 import { useMediaSession } from '@/hooks/use-media-session'
@@ -98,6 +99,7 @@ export function ExerciseStopwatch({
         setFinished(true)
         endAtRef.current = null
         Haptic.success()
+        Sound.play('timerComplete')
       }
     }
 

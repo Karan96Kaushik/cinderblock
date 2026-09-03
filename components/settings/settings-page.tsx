@@ -15,13 +15,17 @@ import {
   Timer,
   Trash2,
   Upload,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
+import { Sound } from '@/lib/sounds'
 import { useSettings } from '@/hooks/use-settings'
 import { useAuth } from '@/hooks/use-auth'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
-import { Switch } from '@/components/ui/switch'
 import { readGymLog, saveGymLog } from '@/lib/sync/storage'
 import {
   DARK_THEMES,
@@ -88,6 +92,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     setTheme,
     setAutoStartRestTimer,
     setRestTimerMinutes,
+    setSoundEnabled,
+    setSoundVolume,
     resetSettings,
     replaceSettings,
   } = useSettings()
@@ -228,6 +234,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           onFontPreset={setFontPreset}
           onTheme={setTheme}
           onReset={resetSettings}
+        />
+
+        <SoundsSection
+          soundEnabled={settings.soundEnabled}
+          soundVolume={settings.soundVolume}
+          onSoundEnabled={setSoundEnabled}
+          onSoundVolume={setSoundVolume}
         />
 
         <NotificationsSection />
@@ -532,6 +545,81 @@ function AppearanceSection({
             Accent text — MARK DONE · 3 sets × 8 reps
           </p>
         </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+function SoundsSection({
+  soundEnabled,
+  soundVolume,
+  onSoundEnabled,
+  onSoundVolume,
+}: {
+  soundEnabled: boolean
+  soundVolume: number
+  onSoundEnabled: (enabled: boolean) => void
+  onSoundVolume: (volume: number) => void
+}) {
+  const volumePercent = Math.round(soundVolume * 100)
+
+  const handlePreview = () => {
+    Sound.preview('timerComplete')
+    Haptic.selection()
+  }
+
+  return (
+    <SectionCard title="Sounds">
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {soundEnabled ? (
+              <Volume2 className="w-5 h-5 text-neon-orange shrink-0" />
+            ) : (
+              <VolumeX className="w-5 h-5 text-muted-foreground shrink-0" />
+            )}
+            <div>
+              <p className="font-sans text-sm font-bold text-foreground">Workout sounds</p>
+              <p className="font-mono text-xs text-muted-foreground mt-0.5">
+                Exercise changes, rest timer, and run phase alerts
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={soundEnabled}
+            onCheckedChange={(checked) => {
+              onSoundEnabled(checked)
+              Haptic.selection()
+              if (checked) Sound.preview('exerciseChange')
+            }}
+            aria-label="Enable workout sounds"
+          />
+        </div>
+
+        <div className={cn('space-y-3', !soundEnabled && 'opacity-50 pointer-events-none')}>
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-xs text-muted-foreground">Volume</p>
+            <span className="font-mono text-xs text-neon-orange tabular-nums">{volumePercent}%</span>
+          </div>
+          <Slider
+            value={[volumePercent]}
+            min={0}
+            max={100}
+            step={5}
+            onValueChange={([value]) => onSoundVolume(value / 100)}
+            aria-label="Sound volume"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handlePreview}
+          disabled={!soundEnabled}
+          data-haptic="light"
+          className="w-full min-h-[44px] rounded-lg border border-neon-orange/40 font-mono text-xs tracking-widest uppercase text-neon-orange hover:bg-neon-orange/10 transition-colors disabled:opacity-40"
+        >
+          Preview timer sound
+        </button>
       </div>
     </SectionCard>
   )

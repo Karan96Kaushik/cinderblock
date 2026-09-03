@@ -28,6 +28,8 @@ type SettingsContextValue = {
   setAlwaysAwake: (enabled: boolean) => void
   setAutoStartRestTimer: (enabled: boolean) => void
   setRestTimerMinutes: (minutes: number) => void
+  setSoundEnabled: (enabled: boolean) => void
+  setSoundVolume: (volume: number) => void
   replaceSettings: (next: AppSettings) => void
   resetSettings: () => void
 }
@@ -72,6 +74,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, restTimerMinutes: clampRestTimerMinutes(restTimerMinutes) }))
   }, [])
 
+  const setSoundEnabled = useCallback((soundEnabled: boolean) => {
+    setSettings((prev) => ({ ...prev, soundEnabled }))
+  }, [])
+
+  const setSoundVolume = useCallback((soundVolume: number) => {
+    setSettings((prev) => ({ ...prev, soundVolume: Math.max(0, Math.min(1, soundVolume)) }))
+  }, [])
+
   const replaceSettings = useCallback((next: AppSettings) => {
     // Hydrate from server — don't echo a cloud push for this write
     silentWrite.current = true
@@ -87,6 +97,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setAlwaysAwake,
       setAutoStartRestTimer,
       setRestTimerMinutes,
+      setSoundEnabled,
+      setSoundVolume,
       replaceSettings,
       resetSettings,
     }),
@@ -98,6 +110,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setAlwaysAwake,
       setAutoStartRestTimer,
       setRestTimerMinutes,
+      setSoundEnabled,
+      setSoundVolume,
       replaceSettings,
       resetSettings,
     ],

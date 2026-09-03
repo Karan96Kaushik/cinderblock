@@ -15,6 +15,8 @@ export type AppSettings = {
   alwaysAwake: boolean
   autoStartRestTimer: boolean
   restTimerMinutes: number
+  soundEnabled: boolean
+  soundVolume: number
 }
 
 export const STORAGE_KEY = 'cinderblock_settings'
@@ -57,6 +59,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alwaysAwake: true,
   autoStartRestTimer: false,
   restTimerMinutes: 2,
+  soundEnabled: true,
+  soundVolume: 0.7,
 }
 
 const MIN_REST_TIMER_MINUTES = 0.5
@@ -83,6 +87,11 @@ export function readSettings(): AppSettings {
           ? parsed.autoStartRestTimer
           : DEFAULT_SETTINGS.autoStartRestTimer,
       restTimerMinutes: clampRestTimerMinutes(parsed.restTimerMinutes),
+      soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
+      soundVolume:
+        typeof parsed.soundVolume === 'number' && parsed.soundVolume >= 0 && parsed.soundVolume <= 1
+          ? parsed.soundVolume
+          : 0.7,
     }
   } catch {
     return DEFAULT_SETTINGS
