@@ -21,7 +21,15 @@ function formatTime(totalSeconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function ExerciseStopwatch({ sessionLabel = 'Rest timer' }: { sessionLabel?: string }) {
+export function ExerciseStopwatch({
+  sessionLabel = 'Rest timer',
+  autoStartSeconds,
+  autoStartTick = 0,
+}: {
+  sessionLabel?: string
+  autoStartSeconds?: number
+  autoStartTick?: number
+}) {
   const { settings } = useSettings()
   const [open, setOpen] = useState(false)
   const [duration, setDuration] = useState(0)
@@ -66,6 +74,12 @@ export function ExerciseStopwatch({ sessionLabel = 'Rest timer' }: { sessionLabe
     },
     [resetToDuration],
   )
+
+  useEffect(() => {
+    if (autoStartTick > 0 && autoStartSeconds && autoStartSeconds > 0) {
+      selectPreset(autoStartSeconds)
+    }
+  }, [autoStartTick, autoStartSeconds, selectPreset])
 
   const reset = useCallback(() => {
     halt()
@@ -119,7 +133,9 @@ export function ExerciseStopwatch({ sessionLabel = 'Rest timer' }: { sessionLabe
   }
 
   const progress = duration > 0 ? remaining / duration : 0
-  const activePreset = PRESETS.find((p) => p.seconds === duration)?.label
+  const activePreset =
+    PRESETS.find((p) => p.seconds === duration)?.label ??
+    (duration > 0 ? formatTime(duration) : undefined)
   const timerActive = duration > 0 && (running || remaining > 0) && !finished
 
   const toggleRunRef = useRef(toggleRun)

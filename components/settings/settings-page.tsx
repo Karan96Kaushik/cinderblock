@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Server,
   Smartphone,
+  Timer,
   Trash2,
   Upload,
   Volume2,
@@ -84,8 +85,18 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
   const { program, programId } = useActiveProgram()
-  const { settings, setFontSize, setFontPreset, setTheme, setSoundEnabled, setSoundVolume, resetSettings, replaceSettings } =
-    useSettings()
+  const {
+    settings,
+    setFontSize,
+    setFontPreset,
+    setTheme,
+    setAutoStartRestTimer,
+    setRestTimerMinutes,
+    setSoundEnabled,
+    setSoundVolume,
+    resetSettings,
+    replaceSettings,
+  } = useSettings()
   const { token, user, authBackend, isAuthenticated, isSupabaseEnabled } = useAuth()
   const [gymStore, setGymStore] = useState<GymStore>({})
   const [runLog, setRunLog] = useState<RunSessionLog[]>([])
@@ -206,6 +217,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           programName={program.name}
           programVersion={program.version}
           workoutCount={Object.keys(program.workouts).length}
+        />
+
+        <TrainingSection
+          autoStartRestTimer={settings.autoStartRestTimer}
+          restTimerMinutes={settings.restTimerMinutes}
+          onAutoStartRestTimer={setAutoStartRestTimer}
+          onRestTimerMinutes={setRestTimerMinutes}
         />
 
         <AppearanceSection
@@ -1561,6 +1579,83 @@ function ProgramSection({ programName, programVersion, workoutCount }: ProgramSe
         <p className="font-mono text-xs text-muted-foreground mt-3 leading-relaxed">
           To edit workouts, go to Training log → Explore → Edit.
         </p>
+      </div>
+    </SectionCard>
+  )
+}
+
+function TrainingSection({
+  autoStartRestTimer,
+  restTimerMinutes,
+  onAutoStartRestTimer,
+  onRestTimerMinutes,
+}: {
+  autoStartRestTimer: boolean
+  restTimerMinutes: number
+  onAutoStartRestTimer: (enabled: boolean) => void
+  onRestTimerMinutes: (minutes: number) => void
+}) {
+  const handleMinutesChange = (raw: string) => {
+    const parsed = Number.parseFloat(raw)
+    if (!Number.isFinite(parsed)) return
+    onRestTimerMinutes(parsed)
+  }
+
+  return (
+    <SectionCard title="Training">
+      <div className="space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <Timer className="w-5 h-5 text-neon-orange shrink-0 mt-0.5" />
+            <div>
+              <p className="font-sans text-sm font-bold text-foreground">
+                Auto-start rest timer between sets
+              </p>
+              <p className="font-mono text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Starts the rest timer automatically after you finish logging a set.
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={autoStartRestTimer}
+            onCheckedChange={(checked) => {
+              onAutoStartRestTimer(checked)
+              Haptic.selection()
+            }}
+            aria-label="Auto-start rest timer between sets"
+          />
+        </div>
+
+        <div
+          className={cn(
+            'space-y-2 transition-opacity',
+            !autoStartRestTimer && 'opacity-50 pointer-events-none',
+          )}
+        >
+          <label htmlFor="rest-timer-minutes" className="font-mono text-xs text-muted-foreground">
+            Rest duration (minutes)
+          </label>
+          <input
+            id="rest-timer-minutes"
+            type="number"
+            inputMode="decimal"
+            min={0.5}
+            max={10}
+            step={0.5}
+            value={restTimerMinutes}
+            onChange={(e) => handleMinutesChange(e.target.value)}
+            disabled={!autoStartRestTimer}
+            className={cn(
+              'w-full h-11 bg-input/60 border border-border rounded-md px-3',
+              'font-mono text-base text-foreground',
+              'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
+              'transition-colors disabled:cursor-not-allowed',
+            )}
+          />
+          <p className="font-mono text-[10px] text-muted-foreground">
+            Between 0.5 and 10 minutes. The timer does not start after the final set.
+          </p>
+        </div>
       </div>
     </SectionCard>
   )

@@ -10,6 +10,7 @@ import {
 } from 'react'
 import {
   applySettings,
+  clampRestTimerMinutes,
   DEFAULT_SETTINGS,
   readSettings,
   writeSettings,
@@ -25,6 +26,8 @@ type SettingsContextValue = {
   setFontPreset: (preset: FontPresetKey) => void
   setTheme: (theme: ThemePresetKey) => void
   setAlwaysAwake: (enabled: boolean) => void
+  setAutoStartRestTimer: (enabled: boolean) => void
+  setRestTimerMinutes: (minutes: number) => void
   setSoundEnabled: (enabled: boolean) => void
   setSoundVolume: (volume: number) => void
   replaceSettings: (next: AppSettings) => void
@@ -56,18 +59,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetSettings = useCallback(() => {
-    setSettings({
-      fontSize: DEFAULT_SETTINGS.fontSize,
-      fontPreset: DEFAULT_SETTINGS.fontPreset,
-      theme: DEFAULT_SETTINGS.theme,
-      alwaysAwake: DEFAULT_SETTINGS.alwaysAwake,
-      soundEnabled: DEFAULT_SETTINGS.soundEnabled,
-      soundVolume: DEFAULT_SETTINGS.soundVolume,
-    })
+    setSettings(DEFAULT_SETTINGS)
   }, [])
 
   const setAlwaysAwake = useCallback((alwaysAwake: boolean) => {
     setSettings((prev) => ({ ...prev, alwaysAwake }))
+  }, [])
+
+  const setAutoStartRestTimer = useCallback((autoStartRestTimer: boolean) => {
+    setSettings((prev) => ({ ...prev, autoStartRestTimer }))
+  }, [])
+
+  const setRestTimerMinutes = useCallback((restTimerMinutes: number) => {
+    setSettings((prev) => ({ ...prev, restTimerMinutes: clampRestTimerMinutes(restTimerMinutes) }))
   }, [])
 
   const setSoundEnabled = useCallback((soundEnabled: boolean) => {
@@ -91,6 +95,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFontPreset,
       setTheme,
       setAlwaysAwake,
+      setAutoStartRestTimer,
+      setRestTimerMinutes,
       setSoundEnabled,
       setSoundVolume,
       replaceSettings,
@@ -102,6 +108,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFontPreset,
       setTheme,
       setAlwaysAwake,
+      setAutoStartRestTimer,
+      setRestTimerMinutes,
       setSoundEnabled,
       setSoundVolume,
       replaceSettings,
