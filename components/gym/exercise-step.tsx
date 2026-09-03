@@ -3,8 +3,9 @@ import { format } from 'date-fns'
 import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExerciseLog, LastExerciseRecord, ProgramExercise, SetLog } from './gym-tracker'
-import { createEmptySet, formatSetSummary, hasSetLogData } from './gym-tracker'
+import { createEmptySet, formatSetSummary, hasSetLogData, isSetComplete } from './gym-tracker'
 import { isTimedHoldExercise } from '@/lib/program'
+import { useSettings } from '@/hooks/use-settings'
 import { ExerciseRefVideoLink } from './exercise-ref-video-link'
 import { ExerciseStopwatch } from './exercise-stopwatch'
 
@@ -59,7 +60,9 @@ export function ExerciseStep({
   onSkip,
   onMarkUndone,
 }: ExerciseStepProps) {
+  const { settings } = useSettings()
   const [notesOpen, setNotesOpen] = useState(false)
+  const [autoStartTick, setAutoStartTick] = useState(0)
 
   const sets =
     log?.sets ?? Array.from({ length: exercise.sets }, () => createEmptySet(exercise))
@@ -78,7 +81,9 @@ export function ExerciseStep({
   }, [exercise.name, exercise.sets, isAddressed])
 
   const updateSet = (index: number, field: keyof SetLog, value: string) => {
+    const wasComplete = isSetComplete(sets[index], isTimedHold)
     const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    const nowComplete = isSetComplete(next[index], isTimedHold)
 
     if (
       hasSetLogData(next[index]) &&
@@ -86,6 +91,15 @@ export function ExerciseStep({
       visibleSetCount < exercise.sets
     ) {
       setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
+    }
+
+    if (
+      settings.autoStartRestTimer &&
+      !wasComplete &&
+      nowComplete &&
+      index < exercise.sets - 1
+    ) {
+      setAutoStartTick((tick) => tick + 1)
     }
 
     onUpdateSets(next)
@@ -284,7 +298,14 @@ export function ExerciseStep({
         </div>
       )}
 
-      {isActive && <ExerciseStopwatch key={exercise.name} sessionLabel={exercise.name} />}
+      {isActive && (
+        <ExerciseStopwatch
+          key={exercise.name}
+          sessionLabel={exercise.name}
+          autoStartSeconds={settings.restTimerMinutes * 60}
+          autoStartTick={autoStartTick}
+        />
+      )}
 
       {/* Notes (collapsible) */}
       {exercise.notes && exercise.notes.length > 0 && (

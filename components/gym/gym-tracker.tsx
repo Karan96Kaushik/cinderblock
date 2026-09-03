@@ -44,6 +44,13 @@ export function hasSetLogData(set: SetLog): boolean {
   return Boolean(set.weight.trim() || set.reps.trim() || set.seconds?.trim())
 }
 
+export function isSetComplete(set: SetLog, isTimedHold: boolean): boolean {
+  if (isTimedHold) {
+    return Boolean(set.seconds?.trim())
+  }
+  return Boolean(set.weight.trim() && set.reps.trim())
+}
+
 export type ExerciseLog = {
   sets: SetLog[]
   completed: boolean

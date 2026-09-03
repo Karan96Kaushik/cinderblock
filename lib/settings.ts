@@ -13,6 +13,8 @@ export type AppSettings = {
   fontPreset: FontPresetKey
   theme: ThemePresetKey
   alwaysAwake: boolean
+  autoStartRestTimer: boolean
+  restTimerMinutes: number
 }
 
 export const STORAGE_KEY = 'cinderblock_settings'
@@ -53,6 +55,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   fontPreset: 'cinderblock',
   theme: 'orange',
   alwaysAwake: true,
+  autoStartRestTimer: false,
+  restTimerMinutes: 2,
+}
+
+const MIN_REST_TIMER_MINUTES = 0.5
+const MAX_REST_TIMER_MINUTES = 10
+
+export function clampRestTimerMinutes(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_SETTINGS.restTimerMinutes
+  return Math.min(MAX_REST_TIMER_MINUTES, Math.max(MIN_REST_TIMER_MINUTES, value))
 }
 
 export function readSettings(): AppSettings {
@@ -66,6 +78,11 @@ export function readSettings(): AppSettings {
         parsed.fontPreset && parsed.fontPreset in FONT_PRESETS ? parsed.fontPreset : 'cinderblock',
       theme: normalizeThemeKey(parsed.theme),
       alwaysAwake: typeof parsed.alwaysAwake === 'boolean' ? parsed.alwaysAwake : true,
+      autoStartRestTimer:
+        typeof parsed.autoStartRestTimer === 'boolean'
+          ? parsed.autoStartRestTimer
+          : DEFAULT_SETTINGS.autoStartRestTimer,
+      restTimerMinutes: clampRestTimerMinutes(parsed.restTimerMinutes),
     }
   } catch {
     return DEFAULT_SETTINGS

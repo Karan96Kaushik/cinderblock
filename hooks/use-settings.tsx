@@ -10,6 +10,8 @@ import {
 } from 'react'
 import {
   applySettings,
+  clampRestTimerMinutes,
+  DEFAULT_SETTINGS,
   readSettings,
   writeSettings,
   type AppSettings,
@@ -24,6 +26,8 @@ type SettingsContextValue = {
   setFontPreset: (preset: FontPresetKey) => void
   setTheme: (theme: ThemePresetKey) => void
   setAlwaysAwake: (enabled: boolean) => void
+  setAutoStartRestTimer: (enabled: boolean) => void
+  setRestTimerMinutes: (minutes: number) => void
   replaceSettings: (next: AppSettings) => void
   resetSettings: () => void
 }
@@ -53,11 +57,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetSettings = useCallback(() => {
-    setSettings({ fontSize: 'md', fontPreset: 'cinderblock', theme: 'orange', alwaysAwake: true })
+    setSettings(DEFAULT_SETTINGS)
   }, [])
 
   const setAlwaysAwake = useCallback((alwaysAwake: boolean) => {
     setSettings((prev) => ({ ...prev, alwaysAwake }))
+  }, [])
+
+  const setAutoStartRestTimer = useCallback((autoStartRestTimer: boolean) => {
+    setSettings((prev) => ({ ...prev, autoStartRestTimer }))
+  }, [])
+
+  const setRestTimerMinutes = useCallback((restTimerMinutes: number) => {
+    setSettings((prev) => ({ ...prev, restTimerMinutes: clampRestTimerMinutes(restTimerMinutes) }))
   }, [])
 
   const replaceSettings = useCallback((next: AppSettings) => {
@@ -73,6 +85,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFontPreset,
       setTheme,
       setAlwaysAwake,
+      setAutoStartRestTimer,
+      setRestTimerMinutes,
       replaceSettings,
       resetSettings,
     }),
@@ -82,6 +96,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setFontPreset,
       setTheme,
       setAlwaysAwake,
+      setAutoStartRestTimer,
+      setRestTimerMinutes,
       replaceSettings,
       resetSettings,
     ],
