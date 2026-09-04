@@ -265,6 +265,7 @@ export function WorkoutFlow({
 
   const handleMarkDone = () => handleMarkDoneAt(currentStep)
   const handleSkip = () => handleSkipAt(currentStep)
+  const handleMarkUndone = () => handleMarkUndoneAt(currentStep)
 
   const currentExercise = exercises[currentStep]
   const currentLog = currentExercise ? dayLog.exercises[currentExercise.name] : undefined
@@ -430,27 +431,38 @@ export function WorkoutFlow({
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          {allAddressed ? (
-            <button
-              onClick={onFinish}
-              data-haptic="success"
-              className="flex-1 min-h-[48px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
-            >
-              FINISH WORKOUT
-            </button>
-          ) : isExerciseAddressed(currentLog) ? (
-            <button
-              onClick={() => {
-                const nextPending = exercises.findIndex(
-                  (ex) => !isExerciseAddressed(dayLog.exercises[ex.name]),
-                )
-                if (nextPending !== -1) goToStep(nextPending)
-              }}
-              data-haptic="selection"
-              className="flex-1 min-h-[48px] rounded-lg border border-neon-orange/30 font-mono text-sm text-neon-orange tracking-widest uppercase hover:bg-neon-orange/10 transition-colors"
-            >
-              NEXT PENDING →
-            </button>
+          {isExerciseAddressed(currentLog) ? (
+            <div className="flex-1 flex gap-2">
+              <button
+                onClick={handleMarkUndone}
+                data-haptic="selection"
+                className="min-h-[48px] px-4 rounded-lg border border-neon-orange/30 font-mono text-xs tracking-widest uppercase text-neon-orange/70 hover:text-neon-orange hover:border-neon-orange/60 transition-colors"
+              >
+                UNDO
+              </button>
+              {allAddressed ? (
+                <button
+                  onClick={onFinish}
+                  data-haptic="success"
+                  className="flex-1 min-h-[48px] rounded-lg bg-neon-orange text-primary-foreground font-mono text-sm font-bold tracking-widest uppercase hover:opacity-90 active:opacity-75 transition-opacity neon-border-orange"
+                >
+                  FINISH WORKOUT
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    const nextPending = exercises.findIndex(
+                      (ex) => !isExerciseAddressed(dayLog.exercises[ex.name]),
+                    )
+                    if (nextPending !== -1) goToStep(nextPending)
+                  }}
+                  data-haptic="selection"
+                  className="flex-1 min-h-[48px] rounded-lg border border-neon-orange/30 font-mono text-sm text-neon-orange tracking-widest uppercase hover:bg-neon-orange/10 transition-colors"
+                >
+                  NEXT PENDING →
+                </button>
+              )}
+            </div>
           ) : (
             <div className="flex-1 flex gap-2">
               <button
