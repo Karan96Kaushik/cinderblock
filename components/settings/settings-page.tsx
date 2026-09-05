@@ -1626,12 +1626,7 @@ function TrainingSection({
           />
         </div>
 
-        <div
-          className={cn(
-            'space-y-2 transition-opacity',
-            !autoStartRestTimer && 'opacity-50 pointer-events-none',
-          )}
-        >
+        <div className="space-y-2">
           <label htmlFor="rest-timer-minutes" className="font-mono text-xs text-muted-foreground">
             Rest duration (minutes)
           </label>
@@ -1644,16 +1639,17 @@ function TrainingSection({
             step={0.5}
             value={restTimerMinutes}
             onChange={(e) => handleMinutesChange(e.target.value)}
-            disabled={!autoStartRestTimer}
             className={cn(
               'w-full h-11 bg-input/60 border border-border rounded-md px-3',
               'font-mono text-base text-foreground',
               'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
-              'transition-colors disabled:cursor-not-allowed',
+              'transition-colors',
             )}
           />
           <p className="font-mono text-[10px] text-muted-foreground">
-            Between 0.5 and 10 minutes. The timer does not start after the final set.
+            Between 0.5 and 10 minutes. Appears as a preset on the rest timer
+            {autoStartRestTimer ? ' and is used for auto-start between sets' : ''}. The timer does not
+            start after the final set.
           </p>
         </div>
       </div>

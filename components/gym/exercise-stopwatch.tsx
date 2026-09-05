@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
@@ -9,7 +9,7 @@ import { useMediaSession } from '@/hooks/use-media-session'
 import { MediaTrackControls } from '@/components/media-track-controls'
 import { AlwaysAwakeToggle } from '@/components/always-awake-toggle'
 
-const PRESETS = [
+const BASE_PRESETS = [
   { label: '30s', seconds: 30 },
   { label: '45s', seconds: 45 },
   { label: '1m', seconds: 60 },
@@ -19,6 +19,20 @@ function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60)
   const s = totalSeconds % 60
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function formatPresetLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  if (seconds % 60 === 0) return `${seconds / 60}m`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function buildPresets(customRestSeconds: number) {
+  const custom = { label: formatPresetLabel(customRestSeconds), seconds: customRestSeconds }
+  const unique = new Map([...BASE_PRESETS, custom].map((preset) => [preset.seconds, preset]))
+  return [...unique.values()].sort((a, b) => a.seconds - b.seconds)
 }
 
 export function ExerciseStopwatch({
@@ -31,11 +45,16 @@ export function ExerciseStopwatch({
   autoStartTick?: number
 }) {
   const { settings } = useSettings()
+  const presets = useMemo(
+    () => buildPresets(settings.restTimerMinutes * 60),
+    [settings.restTimerMinutes],
+  )
   const [open, setOpen] = useState(false)
   const [duration, setDuration] = useState(0)
   const [remaining, setRemaining] = useState(0)
   const [running, setRunning] = useState(false)
   const [finished, setFinished] = useState(false)
+  const [startGeneration, setStartGeneration] = useState(0)
   const endAtRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
 
@@ -54,32 +73,37 @@ export function ExerciseStopwatch({
     setRunning(false)
   }, [clearTick])
 
-  const resetToDuration = useCallback(
+  const beginCountdown = useCallback(
     (seconds: number) => {
-      halt()
+      clearTick()
       setFinished(false)
       setDuration(seconds)
       setRemaining(seconds)
+      endAtRef.current = Date.now() + seconds * 1000
+      setStartGeneration((generation) => generation + 1)
+      setRunning(true)
     },
-    [halt],
+    [clearTick],
   )
 
   const selectPreset = useCallback(
     (seconds: number) => {
-      resetToDuration(seconds)
       setOpen(true)
-      endAtRef.current = Date.now() + seconds * 1000
-      setRunning(true)
+      beginCountdown(seconds)
       Haptic.selection()
     },
-    [resetToDuration],
+    [beginCountdown],
   )
 
+  const autoStartSecondsRef = useRef(autoStartSeconds)
+  autoStartSecondsRef.current = autoStartSeconds
+
   useEffect(() => {
-    if (autoStartTick > 0 && autoStartSeconds && autoStartSeconds > 0) {
-      selectPreset(autoStartSeconds)
+    const seconds = autoStartSecondsRef.current
+    if (autoStartTick > 0 && seconds && seconds > 0) {
+      selectPreset(seconds)
     }
-  }, [autoStartTick, autoStartSeconds, selectPreset])
+  }, [autoStartTick, selectPreset])
 
   const reset = useCallback(() => {
     halt()
@@ -106,7 +130,7 @@ export function ExerciseStopwatch({
     tick()
     tickRef.current = window.setInterval(tick, 200)
     return clearTick
-  }, [running, clearTick])
+  }, [running, startGeneration, clearTick])
 
   useEffect(() => () => clearTick(), [clearTick])
 
@@ -128,13 +152,14 @@ export function ExerciseStopwatch({
     }
     if (remaining <= 0) return
     endAtRef.current = Date.now() + remaining * 1000
+    setStartGeneration((generation) => generation + 1)
     setRunning(true)
     Haptic.selection()
   }
 
   const progress = duration > 0 ? remaining / duration : 0
   const activePreset =
-    PRESETS.find((p) => p.seconds === duration)?.label ??
+    presets.find((preset) => preset.seconds === duration)?.label ??
     (duration > 0 ? formatTime(duration) : undefined)
   const timerActive = duration > 0 && (running || remaining > 0) && !finished
 
@@ -190,10 +215,15 @@ export function ExerciseStopwatch({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {PRESETS.map((preset) => (
+          <div
+            className={cn(
+              'grid gap-2 mb-4',
+              presets.length > 3 ? 'grid-cols-2' : 'grid-cols-3',
+            )}
+          >
+            {presets.map((preset) => (
               <button
-                key={preset.label}
+                key={preset.seconds}
                 type="button"
                 onClick={() => selectPreset(preset.seconds)}
                 data-haptic="selection"
