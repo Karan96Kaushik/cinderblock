@@ -360,6 +360,7 @@ export function WorkoutFlow({
                   >
                     <div className="px-4 py-2">
                       <ExerciseStep
+                        workoutDate={date}
                         exercise={exercise}
                         log={log}
                         userVideoUrl={exerciseVideos[exercise.name]}
