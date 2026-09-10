@@ -10,6 +10,7 @@ import { ExerciseRefVideoLink } from './exercise-ref-video-link'
 import { ExerciseStopwatch } from './exercise-stopwatch'
 
 interface ExerciseStepProps {
+  workoutDate: string
   exercise: ProgramExercise
   log: ExerciseLog | undefined
   userVideoUrl?: string
@@ -50,6 +51,7 @@ function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
 }
 
 export function ExerciseStep({
+  workoutDate,
   exercise,
   log,
   userVideoUrl,
@@ -300,7 +302,8 @@ export function ExerciseStep({
 
       {isActive && (
         <ExerciseStopwatch
-          key={exercise.name}
+          workoutDate={workoutDate}
+          exerciseName={exercise.name}
           sessionLabel={exercise.name}
           autoStartSeconds={settings.restTimerMinutes * 60}
           autoStartTick={autoStartTick}

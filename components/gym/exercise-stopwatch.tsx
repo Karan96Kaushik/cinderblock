@@ -3,6 +3,11 @@ import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Haptic } from '@/lib/haptics'
 import { Sound } from '@/lib/sounds'
+import {
+  clearActiveRestTimer,
+  loadRestTimerState,
+  writeActiveRestTimer,
+} from '@/lib/rest-timer'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { useSettings } from '@/hooks/use-settings'
 import { useMediaSession } from '@/hooks/use-media-session'
@@ -36,10 +41,14 @@ function buildPresets(customRestSeconds: number) {
 }
 
 export function ExerciseStopwatch({
+  workoutDate,
+  exerciseName,
   sessionLabel = 'Rest timer',
   autoStartSeconds,
   autoStartTick = 0,
 }: {
+  workoutDate: string
+  exerciseName: string
   sessionLabel?: string
   autoStartSeconds?: number
   autoStartTick?: number
@@ -49,14 +58,17 @@ export function ExerciseStopwatch({
     () => buildPresets(settings.restTimerMinutes * 60),
     [settings.restTimerMinutes],
   )
-  const [open, setOpen] = useState(false)
-  const [duration, setDuration] = useState(0)
-  const [remaining, setRemaining] = useState(0)
-  const [running, setRunning] = useState(false)
-  const [finished, setFinished] = useState(false)
+  const initial = useRef(loadRestTimerState(workoutDate, exerciseName)).current
+  const [open, setOpen] = useState(initial.open)
+  const [duration, setDuration] = useState(initial.duration)
+  const [remaining, setRemaining] = useState(initial.remaining)
+  const [running, setRunning] = useState(initial.running)
+  const [finished, setFinished] = useState(initial.finished)
+  const [startedAtIso, setStartedAtIso] = useState<string | null>(initial.startedAtIso)
   const [startGeneration, setStartGeneration] = useState(0)
   const endAtRef = useRef<number | null>(null)
   const tickRef = useRef<number | null>(null)
+  const restoredRef = useRef(initial.duration > 0)
 
   useWakeLock(settings.alwaysAwake && running)
 
@@ -70,25 +82,28 @@ export function ExerciseStopwatch({
   const halt = useCallback(() => {
     clearTick()
     endAtRef.current = null
+    setStartedAtIso(null)
     setRunning(false)
   }, [clearTick])
 
   const beginCountdown = useCallback(
     (seconds: number) => {
       clearTick()
+      const startedAt = new Date().toISOString()
       setFinished(false)
       setDuration(seconds)
       setRemaining(seconds)
+      setStartedAtIso(startedAt)
       endAtRef.current = Date.now() + seconds * 1000
       setStartGeneration((generation) => generation + 1)
       setRunning(true)
+      setOpen(true)
     },
     [clearTick],
   )
 
   const selectPreset = useCallback(
     (seconds: number) => {
-      setOpen(true)
       beginCountdown(seconds)
       Haptic.selection()
     },
@@ -100,15 +115,22 @@ export function ExerciseStopwatch({
 
   useEffect(() => {
     const seconds = autoStartSecondsRef.current
-    if (autoStartTick > 0 && seconds && seconds > 0) {
+    if (autoStartTick > 0 && seconds && seconds > 0 && !restoredRef.current) {
       selectPreset(seconds)
     }
   }, [autoStartTick, selectPreset])
+
+  useEffect(() => {
+    if (!initial.running || initial.remaining <= 0) return
+    endAtRef.current = Date.now() + initial.remaining * 1000
+    setStartGeneration((generation) => generation + 1)
+  }, [])
 
   const reset = useCallback(() => {
     halt()
     setFinished(false)
     setRemaining(duration)
+    clearActiveRestTimer()
   }, [halt, duration])
 
   useEffect(() => {
@@ -121,6 +143,7 @@ export function ExerciseStopwatch({
         clearTick()
         setRunning(false)
         setFinished(true)
+        setStartedAtIso(null)
         endAtRef.current = null
         Haptic.success()
         Sound.play('timerComplete')
@@ -133,6 +156,37 @@ export function ExerciseStopwatch({
   }, [running, startGeneration, clearTick])
 
   useEffect(() => () => clearTick(), [clearTick])
+
+  useEffect(() => {
+    if (duration === 0 && remaining === 0 && !running && !finished && !open) {
+      return
+    }
+
+    if (finished) {
+      clearActiveRestTimer()
+      return
+    }
+
+    writeActiveRestTimer({
+      workoutDate,
+      exerciseName,
+      durationSeconds: duration,
+      remainingSeconds: remaining,
+      running,
+      startedAtIso,
+      open,
+      finished,
+    })
+  }, [
+    workoutDate,
+    exerciseName,
+    duration,
+    remaining,
+    running,
+    startedAtIso,
+    open,
+    finished,
+  ])
 
   const toggleRun = () => {
     if (finished) {
@@ -151,6 +205,8 @@ export function ExerciseStopwatch({
       setRemaining(duration)
     }
     if (remaining <= 0) return
+    const startedAt = new Date().toISOString()
+    setStartedAtIso(startedAt)
     endAtRef.current = Date.now() + remaining * 1000
     setStartGeneration((generation) => generation + 1)
     setRunning(true)
