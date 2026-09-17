@@ -4,6 +4,9 @@ import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Sound } from '@/lib/sounds'
 import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
+import { useRestTimer } from '@/hooks/use-rest-timer'
+import { useSettings } from '@/hooks/use-settings'
+import { ExerciseStopwatch } from './exercise-stopwatch'
 import {
   Carousel,
   CarouselContent,
@@ -51,6 +54,8 @@ export function WorkoutFlow({
   onBack,
   onFinish,
 }: WorkoutFlowProps) {
+  const { settings } = useSettings()
+  const restTimer = useRestTimer(date)
   const workout = isProgramWorkoutKey(workoutKey) ? getProgramWorkout(workoutKey) : undefined
   const exercises = workout?.exercises ?? []
 
@@ -269,6 +274,41 @@ export function WorkoutFlow({
 
   const currentExercise = exercises[currentStep]
   const currentLog = currentExercise ? dayLog.exercises[currentExercise.name] : undefined
+  const timerOnOtherExercise =
+    restTimer.isActive &&
+    restTimer.exerciseName != null &&
+    restTimer.exerciseName !== currentExercise?.name
+
+  const renderRestTimer = (exerciseName: string, isActive: boolean) => {
+    if (!isActive) return null
+    const ownsTimer = restTimer.exerciseName === exerciseName
+    if (!ownsTimer && restTimer.isActive) return null
+    return (
+      <ExerciseStopwatch
+        exerciseName={exerciseName}
+        sessionLabel={exerciseName}
+        open={ownsTimer ? restTimer.open : false}
+        onOpenChange={restTimer.setOpen}
+        duration={ownsTimer ? restTimer.duration : 0}
+        remaining={ownsTimer ? restTimer.remaining : 0}
+        running={ownsTimer ? restTimer.running : false}
+        finished={ownsTimer ? restTimer.finished : false}
+        onSelectPreset={(seconds) => restTimer.selectPreset(exerciseName, seconds)}
+        onToggleRun={restTimer.toggleRun}
+        onReset={restTimer.reset}
+      />
+    )
+  }
+
+  const handleAutoStartRestTimer = useCallback(
+    (exerciseName: string) => {
+      const seconds = settings.restTimerMinutes * 60
+      if (seconds > 0) {
+        restTimer.beginCountdown(exerciseName, seconds)
+      }
+    },
+    [restTimer, settings.restTimerMinutes],
+  )
 
   return (
     <div className="h-[calc(100dvh-57px)] flex flex-col min-h-0 overscroll-none">
@@ -360,12 +400,13 @@ export function WorkoutFlow({
                   >
                     <div className="px-4 py-2">
                       <ExerciseStep
-                        workoutDate={date}
                         exercise={exercise}
                         log={log}
                         userVideoUrl={exerciseVideos[exercise.name]}
                         lastRecord={getLastExerciseRecord(store, exercise.name, date)}
                         isActive={isActive}
+                        restTimer={renderRestTimer(exercise.name, isActive)}
+                        onAutoStartRestTimer={() => handleAutoStartRestTimer(exercise.name)}
                         onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
                         onMarkDone={() => handleMarkDoneAt(i)}
                         onSkip={() => handleSkipAt(i)}
@@ -413,6 +454,30 @@ export function WorkoutFlow({
           </CarouselContent>
         </Carousel>
       </div>
+
+      {/* Rest timer for another exercise — stays mounted at workout level */}
+      {timerOnOtherExercise && restTimer.exerciseName && (
+        <div className="fixed bottom-[88px] left-0 right-0 z-20 px-4 pointer-events-none">
+          <div className="max-w-2xl mx-auto pointer-events-auto">
+            <ExerciseStopwatch
+              exerciseName={restTimer.exerciseName}
+              sessionLabel={restTimer.exerciseName}
+              open={restTimer.open}
+              onOpenChange={restTimer.setOpen}
+              duration={restTimer.duration}
+              remaining={restTimer.remaining}
+              running={restTimer.running}
+              finished={restTimer.finished}
+              onSelectPreset={(seconds) =>
+                restTimer.selectPreset(restTimer.exerciseName!, seconds)
+              }
+              onToggleRun={restTimer.toggleRun}
+              onReset={restTimer.reset}
+              compact={!restTimer.open}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Sticky bottom bar: prev | (finish if all done, else mark done) | next */}
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 border-t border-border backdrop-blur-sm">
