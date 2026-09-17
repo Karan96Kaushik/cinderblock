@@ -1,13 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Haptic } from '@/lib/haptics'
-import { Sound } from '@/lib/sounds'
-import {
-  clearActiveRestTimer,
-  loadRestTimerState,
-  writeActiveRestTimer,
-} from '@/lib/rest-timer'
 import { useWakeLock } from '@/hooks/use-wake-lock'
 import { useSettings } from '@/hooks/use-settings'
 import { useMediaSession } from '@/hooks/use-media-session'
@@ -40,178 +33,42 @@ function buildPresets(customRestSeconds: number) {
   return [...unique.values()].sort((a, b) => a.seconds - b.seconds)
 }
 
-export function ExerciseStopwatch({
-  workoutDate,
-  exerciseName,
-  sessionLabel = 'Rest timer',
-  autoStartSeconds,
-  autoStartTick = 0,
-}: {
-  workoutDate: string
+export type ExerciseStopwatchProps = {
   exerciseName: string
   sessionLabel?: string
-  autoStartSeconds?: number
-  autoStartTick?: number
-}) {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  duration: number
+  remaining: number
+  running: boolean
+  finished: boolean
+  onSelectPreset: (seconds: number) => void
+  onToggleRun: () => void
+  onReset: () => void
+  compact?: boolean
+}
+
+export function ExerciseStopwatch({
+  exerciseName,
+  sessionLabel = 'Rest timer',
+  open,
+  onOpenChange,
+  duration,
+  remaining,
+  running,
+  finished,
+  onSelectPreset,
+  onToggleRun,
+  onReset,
+  compact = false,
+}: ExerciseStopwatchProps) {
   const { settings } = useSettings()
   const presets = useMemo(
     () => buildPresets(settings.restTimerMinutes * 60),
     [settings.restTimerMinutes],
   )
-  const initial = useRef(loadRestTimerState(workoutDate, exerciseName)).current
-  const [open, setOpen] = useState(initial.open)
-  const [duration, setDuration] = useState(initial.duration)
-  const [remaining, setRemaining] = useState(initial.remaining)
-  const [running, setRunning] = useState(initial.running)
-  const [finished, setFinished] = useState(initial.finished)
-  const [startedAtIso, setStartedAtIso] = useState<string | null>(initial.startedAtIso)
-  const [startGeneration, setStartGeneration] = useState(0)
-  const endAtRef = useRef<number | null>(null)
-  const tickRef = useRef<number | null>(null)
-  const restoredRef = useRef(initial.duration > 0)
 
   useWakeLock(settings.alwaysAwake && running)
-
-  const clearTick = useCallback(() => {
-    if (tickRef.current !== null) {
-      window.clearInterval(tickRef.current)
-      tickRef.current = null
-    }
-  }, [])
-
-  const halt = useCallback(() => {
-    clearTick()
-    endAtRef.current = null
-    setStartedAtIso(null)
-    setRunning(false)
-  }, [clearTick])
-
-  const beginCountdown = useCallback(
-    (seconds: number) => {
-      clearTick()
-      const startedAt = new Date().toISOString()
-      setFinished(false)
-      setDuration(seconds)
-      setRemaining(seconds)
-      setStartedAtIso(startedAt)
-      endAtRef.current = Date.now() + seconds * 1000
-      setStartGeneration((generation) => generation + 1)
-      setRunning(true)
-      setOpen(true)
-    },
-    [clearTick],
-  )
-
-  const selectPreset = useCallback(
-    (seconds: number) => {
-      beginCountdown(seconds)
-      Haptic.selection()
-    },
-    [beginCountdown],
-  )
-
-  const autoStartSecondsRef = useRef(autoStartSeconds)
-  autoStartSecondsRef.current = autoStartSeconds
-
-  useEffect(() => {
-    const seconds = autoStartSecondsRef.current
-    if (autoStartTick > 0 && seconds && seconds > 0 && !restoredRef.current) {
-      selectPreset(seconds)
-    }
-  }, [autoStartTick, selectPreset])
-
-  useEffect(() => {
-    if (!initial.running || initial.remaining <= 0) return
-    endAtRef.current = Date.now() + initial.remaining * 1000
-    setStartGeneration((generation) => generation + 1)
-  }, [])
-
-  const reset = useCallback(() => {
-    halt()
-    setFinished(false)
-    setRemaining(duration)
-    clearActiveRestTimer()
-  }, [halt, duration])
-
-  useEffect(() => {
-    if (!running || endAtRef.current === null) return
-
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((endAtRef.current! - Date.now()) / 1000))
-      setRemaining(left)
-      if (left <= 0) {
-        clearTick()
-        setRunning(false)
-        setFinished(true)
-        setStartedAtIso(null)
-        endAtRef.current = null
-        Haptic.success()
-        Sound.play('timerComplete')
-      }
-    }
-
-    tick()
-    tickRef.current = window.setInterval(tick, 200)
-    return clearTick
-  }, [running, startGeneration, clearTick])
-
-  useEffect(() => () => clearTick(), [clearTick])
-
-  useEffect(() => {
-    if (duration === 0 && remaining === 0 && !running && !finished && !open) {
-      return
-    }
-
-    if (finished) {
-      clearActiveRestTimer()
-      return
-    }
-
-    writeActiveRestTimer({
-      workoutDate,
-      exerciseName,
-      durationSeconds: duration,
-      remainingSeconds: remaining,
-      running,
-      startedAtIso,
-      open,
-      finished,
-    })
-  }, [
-    workoutDate,
-    exerciseName,
-    duration,
-    remaining,
-    running,
-    startedAtIso,
-    open,
-    finished,
-  ])
-
-  const toggleRun = () => {
-    if (finished) {
-      reset()
-      return
-    }
-    if (running) {
-      if (endAtRef.current !== null) {
-        setRemaining(Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000)))
-      }
-      halt()
-      Haptic.light()
-      return
-    }
-    if (remaining <= 0 && duration > 0) {
-      setRemaining(duration)
-    }
-    if (remaining <= 0) return
-    const startedAt = new Date().toISOString()
-    setStartedAtIso(startedAt)
-    endAtRef.current = Date.now() + remaining * 1000
-    setStartGeneration((generation) => generation + 1)
-    setRunning(true)
-    Haptic.selection()
-  }
 
   const progress = duration > 0 ? remaining / duration : 0
   const activePreset =
@@ -219,8 +76,8 @@ export function ExerciseStopwatch({
     (duration > 0 ? formatTime(duration) : undefined)
   const timerActive = duration > 0 && (running || remaining > 0) && !finished
 
-  const toggleRunRef = useRef(toggleRun)
-  toggleRunRef.current = toggleRun
+  const toggleRunRef = useRef(onToggleRun)
+  toggleRunRef.current = onToggleRun
 
   useMediaSession({
     enabled: timerActive,
@@ -235,11 +92,29 @@ export function ExerciseStopwatch({
     onPause: () => toggleRunRef.current(),
   })
 
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenChange(true)}
+        data-haptic="light"
+        className={cn(
+          'w-full min-h-[44px] rounded-lg border font-mono text-xs tracking-widest uppercase',
+          'flex items-center justify-center gap-2 transition-colors',
+          'border-neon-orange/50 bg-neon-orange/10 text-neon-orange',
+        )}
+      >
+        <Timer className="w-4 h-4" />
+        {exerciseName} · {running ? formatTime(remaining) : finished ? 'Done' : 'Paused'}
+      </button>
+    )
+  }
+
   return (
     <div className="mb-5">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => onOpenChange(!open)}
         data-haptic="light"
         className={cn(
           'w-full min-h-[44px] rounded-lg border font-mono text-xs tracking-widest uppercase',
@@ -281,7 +156,7 @@ export function ExerciseStopwatch({
               <button
                 key={preset.seconds}
                 type="button"
-                onClick={() => selectPreset(preset.seconds)}
+                onClick={() => onSelectPreset(preset.seconds)}
                 data-haptic="selection"
                 className={cn(
                   'min-h-[40px] rounded-lg border font-mono text-sm font-bold tracking-wider transition-colors',
@@ -325,7 +200,7 @@ export function ExerciseStopwatch({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={toggleRun}
+              onClick={onToggleRun}
               disabled={!running && remaining <= 0 && !finished}
               data-haptic="selection"
               className={cn(
@@ -353,7 +228,7 @@ export function ExerciseStopwatch({
             </button>
             <button
               type="button"
-              onClick={reset}
+              onClick={onReset}
               disabled={duration === 0 && remaining === 0}
               data-haptic="light"
               className="min-h-[44px] px-4 rounded-lg border border-border font-mono text-xs tracking-wider uppercase text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors disabled:opacity-40"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -7,15 +7,14 @@ import { createEmptySet, formatSetSummary, hasSetLogData, isSetComplete } from '
 import { isTimedHoldExercise } from '@/lib/program'
 import { useSettings } from '@/hooks/use-settings'
 import { ExerciseRefVideoLink } from './exercise-ref-video-link'
-import { ExerciseStopwatch } from './exercise-stopwatch'
-
 interface ExerciseStepProps {
-  workoutDate: string
   exercise: ProgramExercise
   log: ExerciseLog | undefined
   userVideoUrl?: string
   lastRecord?: LastExerciseRecord | null
   isActive?: boolean
+  restTimer?: ReactNode
+  onAutoStartRestTimer?: () => void
   onUpdateSets: (sets: SetLog[]) => void
   onMarkDone: () => void
   onSkip: () => void
@@ -51,12 +50,13 @@ function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
 }
 
 export function ExerciseStep({
-  workoutDate,
   exercise,
   log,
   userVideoUrl,
   lastRecord,
   isActive = true,
+  restTimer,
+  onAutoStartRestTimer,
   onUpdateSets,
   onMarkDone,
   onSkip,
@@ -64,7 +64,6 @@ export function ExerciseStep({
 }: ExerciseStepProps) {
   const { settings } = useSettings()
   const [notesOpen, setNotesOpen] = useState(false)
-  const [autoStartTick, setAutoStartTick] = useState(0)
 
   const sets =
     log?.sets ?? Array.from({ length: exercise.sets }, () => createEmptySet(exercise))
@@ -101,7 +100,7 @@ export function ExerciseStep({
       nowComplete &&
       index < exercise.sets - 1
     ) {
-      setAutoStartTick((tick) => tick + 1)
+      onAutoStartRestTimer?.()
     }
 
     onUpdateSets(next)
@@ -300,15 +299,7 @@ export function ExerciseStep({
         </div>
       )}
 
-      {isActive && (
-        <ExerciseStopwatch
-          workoutDate={workoutDate}
-          exerciseName={exercise.name}
-          sessionLabel={exercise.name}
-          autoStartSeconds={settings.restTimerMinutes * 60}
-          autoStartTick={autoStartTick}
-        />
-      )}
+      {isActive && restTimer}
 
       {/* Notes (collapsible) */}
       {exercise.notes && exercise.notes.length > 0 && (
