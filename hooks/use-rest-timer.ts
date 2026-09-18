@@ -83,22 +83,18 @@ export function useRestTimer(workoutDate: string) {
     [clearTick],
   )
 
+  /** Claims the panel for an exercise so it can be expanded before a preset is picked. */
+  const setOpenFor = useCallback((ownerExerciseName: string, nextOpen: boolean) => {
+    if (nextOpen) setExerciseName(ownerExerciseName)
+    setOpen(nextOpen)
+  }, [])
+
   const reset = useCallback(() => {
     halt()
     setFinished(false)
     setRemaining(duration)
     clearActiveRestTimer()
   }, [halt, duration])
-
-  const clear = useCallback(() => {
-    halt()
-    setExerciseName(null)
-    setOpen(false)
-    setDuration(0)
-    setRemaining(0)
-    setFinished(false)
-    clearActiveRestTimer()
-  }, [halt])
 
   useEffect(() => {
     if (!initial.running || initial.remaining <= 0) return
@@ -131,8 +127,7 @@ export function useRestTimer(workoutDate: string) {
   useEffect(() => () => clearTick(), [clearTick])
 
   useEffect(() => {
-    if (!exerciseName) return
-    if (duration === 0 && remaining === 0 && !running && !finished && !open) return
+    if (!exerciseName || duration <= 0) return
 
     if (finished) {
       clearActiveRestTimer()
@@ -220,6 +215,7 @@ export function useRestTimer(workoutDate: string) {
     exerciseName,
     open,
     setOpen,
+    setOpenFor,
     duration,
     remaining,
     running,
@@ -230,6 +226,5 @@ export function useRestTimer(workoutDate: string) {
     selectPreset,
     toggleRun,
     reset,
-    clear,
   }
 }

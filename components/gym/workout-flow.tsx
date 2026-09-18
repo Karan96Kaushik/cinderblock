@@ -285,8 +285,8 @@ export function WorkoutFlow({
     if (!ownsTimer && restTimer.isActive) return null
     return (
       <ExerciseStopwatch
-        open={ownsTimer ? restTimer.open : false}
-        onOpenChange={restTimer.setOpen}
+        open={ownsTimer && restTimer.open}
+        onOpenChange={(next) => restTimer.setOpenFor(exerciseName, next)}
         duration={ownsTimer ? restTimer.duration : 0}
         remaining={ownsTimer ? restTimer.remaining : 0}
         running={ownsTimer ? restTimer.running : false}
