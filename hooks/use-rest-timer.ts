@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Haptic } from '@/lib/haptics'
 import { Sound } from '@/lib/sounds'
+import { formatTimer } from '@/lib/running'
 import {
   clearActiveRestTimer,
   loadRestTimerState,
   readActiveRestTimer,
   writeActiveRestTimer,
 } from '@/lib/rest-timer'
+import { useSettings } from '@/hooks/use-settings'
+import { useWakeLock } from '@/hooks/use-wake-lock'
+import { useMediaSession } from '@/hooks/use-media-session'
 
 function loadInitialState(workoutDate: string) {
   const saved = readActiveRestTimer()
@@ -35,6 +39,7 @@ function loadInitialState(workoutDate: string) {
 }
 
 export function useRestTimer(workoutDate: string) {
+  const { settings } = useSettings()
   const initial = useRef(loadInitialState(workoutDate)).current
   const [exerciseName, setExerciseName] = useState<string | null>(initial.exerciseName)
   const [open, setOpen] = useState(initial.open)
@@ -78,22 +83,18 @@ export function useRestTimer(workoutDate: string) {
     [clearTick],
   )
 
+  /** Claims the panel for an exercise so it can be expanded before a preset is picked. */
+  const setOpenFor = useCallback((ownerExerciseName: string, nextOpen: boolean) => {
+    if (nextOpen) setExerciseName(ownerExerciseName)
+    setOpen(nextOpen)
+  }, [])
+
   const reset = useCallback(() => {
     halt()
     setFinished(false)
     setRemaining(duration)
     clearActiveRestTimer()
   }, [halt, duration])
-
-  const clear = useCallback(() => {
-    halt()
-    setExerciseName(null)
-    setOpen(false)
-    setDuration(0)
-    setRemaining(0)
-    setFinished(false)
-    clearActiveRestTimer()
-  }, [halt])
 
   useEffect(() => {
     if (!initial.running || initial.remaining <= 0) return
@@ -126,8 +127,7 @@ export function useRestTimer(workoutDate: string) {
   useEffect(() => () => clearTick(), [clearTick])
 
   useEffect(() => {
-    if (!exerciseName) return
-    if (duration === 0 && remaining === 0 && !running && !finished && !open) return
+    if (!exerciseName || duration <= 0) return
 
     if (finished) {
       clearActiveRestTimer()
@@ -189,20 +189,42 @@ export function useRestTimer(workoutDate: string) {
   )
 
   const isActive = duration > 0 && (running || remaining > 0 || finished)
+  const timerActive = duration > 0 && (running || remaining > 0) && !finished
+
+  useWakeLock(settings.alwaysAwake && running)
+
+  const toggleRunRef = useRef(toggleRun)
+  toggleRunRef.current = toggleRun
+
+  useMediaSession({
+    enabled: timerActive,
+    title: finished
+      ? 'Rest complete'
+      : `${exerciseName ?? 'Rest timer'} · ${formatTimer(remaining)}`,
+    artist: 'CINDERBLOCK',
+    album: 'Rest stopwatch',
+    playbackState: running ? 'playing' : 'paused',
+    duration,
+    position: Math.max(0, duration - remaining),
+    enableTrackControls: true,
+    onPlay: () => toggleRunRef.current(),
+    onPause: () => toggleRunRef.current(),
+  })
 
   return {
     exerciseName,
     open,
     setOpen,
+    setOpenFor,
     duration,
     remaining,
     running,
     finished,
     isActive,
+    timerActive,
     beginCountdown,
     selectPreset,
     toggleRun,
     reset,
-    clear,
   }
 }
