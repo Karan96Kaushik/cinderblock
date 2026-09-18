@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Haptic } from '@/lib/haptics'
 import { Sound } from '@/lib/sounds'
+import { formatTimer } from '@/lib/running'
 import {
   clearActiveRestTimer,
   loadRestTimerState,
   readActiveRestTimer,
   writeActiveRestTimer,
 } from '@/lib/rest-timer'
+import { useSettings } from '@/hooks/use-settings'
+import { useWakeLock } from '@/hooks/use-wake-lock'
+import { useMediaSession } from '@/hooks/use-media-session'
 
 function loadInitialState(workoutDate: string) {
   const saved = readActiveRestTimer()
@@ -35,6 +39,7 @@ function loadInitialState(workoutDate: string) {
 }
 
 export function useRestTimer(workoutDate: string) {
+  const { settings } = useSettings()
   const initial = useRef(loadInitialState(workoutDate)).current
   const [exerciseName, setExerciseName] = useState<string | null>(initial.exerciseName)
   const [open, setOpen] = useState(initial.open)
@@ -189,6 +194,27 @@ export function useRestTimer(workoutDate: string) {
   )
 
   const isActive = duration > 0 && (running || remaining > 0 || finished)
+  const timerActive = duration > 0 && (running || remaining > 0) && !finished
+
+  useWakeLock(settings.alwaysAwake && running)
+
+  const toggleRunRef = useRef(toggleRun)
+  toggleRunRef.current = toggleRun
+
+  useMediaSession({
+    enabled: timerActive,
+    title: finished
+      ? 'Rest complete'
+      : `${exerciseName ?? 'Rest timer'} · ${formatTimer(remaining)}`,
+    artist: 'CINDERBLOCK',
+    album: 'Rest stopwatch',
+    playbackState: running ? 'playing' : 'paused',
+    duration,
+    position: Math.max(0, duration - remaining),
+    enableTrackControls: true,
+    onPlay: () => toggleRunRef.current(),
+    onPause: () => toggleRunRef.current(),
+  })
 
   return {
     exerciseName,
@@ -199,6 +225,7 @@ export function useRestTimer(workoutDate: string) {
     running,
     finished,
     isActive,
+    timerActive,
     beginCountdown,
     selectPreset,
     toggleRun,

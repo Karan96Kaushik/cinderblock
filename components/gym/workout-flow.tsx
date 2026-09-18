@@ -6,7 +6,7 @@ import { Sound } from '@/lib/sounds'
 import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
 import { useRestTimer } from '@/hooks/use-rest-timer'
 import { useSettings } from '@/hooks/use-settings'
-import { ExerciseStopwatch } from './exercise-stopwatch'
+import { ExerciseStopwatch, RestTimerBar } from './exercise-stopwatch'
 import {
   Carousel,
   CarouselContent,
@@ -285,20 +285,26 @@ export function WorkoutFlow({
     if (!ownsTimer && restTimer.isActive) return null
     return (
       <ExerciseStopwatch
-        exerciseName={exerciseName}
-        sessionLabel={exerciseName}
         open={ownsTimer ? restTimer.open : false}
         onOpenChange={restTimer.setOpen}
         duration={ownsTimer ? restTimer.duration : 0}
         remaining={ownsTimer ? restTimer.remaining : 0}
         running={ownsTimer ? restTimer.running : false}
         finished={ownsTimer ? restTimer.finished : false}
+        timerActive={ownsTimer ? restTimer.timerActive : false}
         onSelectPreset={(seconds) => restTimer.selectPreset(exerciseName, seconds)}
         onToggleRun={restTimer.toggleRun}
         onReset={restTimer.reset}
       />
     )
   }
+
+  const goToTimerExercise = useCallback(() => {
+    const index = exercises.findIndex((ex) => ex.name === restTimer.exerciseName)
+    if (index === -1) return
+    restTimer.setOpen(true)
+    goToStep(index)
+  }, [exercises, restTimer, goToStep])
 
   const handleAutoStartRestTimer = useCallback(
     (exerciseName: string) => {
@@ -455,25 +461,16 @@ export function WorkoutFlow({
         </Carousel>
       </div>
 
-      {/* Rest timer for another exercise — stays mounted at workout level */}
+      {/* Timer keeps running at workout level; tap to jump back to its exercise */}
       {timerOnOtherExercise && restTimer.exerciseName && (
-        <div className="fixed bottom-[88px] left-0 right-0 z-20 px-4 pointer-events-none">
+        <div className="fixed bottom-[80px] left-0 right-0 z-20 px-4 pointer-events-none">
           <div className="max-w-2xl mx-auto pointer-events-auto">
-            <ExerciseStopwatch
+            <RestTimerBar
               exerciseName={restTimer.exerciseName}
-              sessionLabel={restTimer.exerciseName}
-              open={restTimer.open}
-              onOpenChange={restTimer.setOpen}
-              duration={restTimer.duration}
               remaining={restTimer.remaining}
               running={restTimer.running}
               finished={restTimer.finished}
-              onSelectPreset={(seconds) =>
-                restTimer.selectPreset(restTimer.exerciseName!, seconds)
-              }
-              onToggleRun={restTimer.toggleRun}
-              onReset={restTimer.reset}
-              compact={!restTimer.open}
+              onOpen={goToTimerExercise}
             />
           </div>
         </div>

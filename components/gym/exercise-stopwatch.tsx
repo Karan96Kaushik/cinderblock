@@ -1,9 +1,7 @@
-import { useMemo, useRef } from 'react'
-import { Pause, Play, RotateCcw, Timer } from 'lucide-react'
+import { useMemo } from 'react'
+import { ChevronRight, Pause, Play, RotateCcw, Timer } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useWakeLock } from '@/hooks/use-wake-lock'
 import { useSettings } from '@/hooks/use-settings'
-import { useMediaSession } from '@/hooks/use-media-session'
 import { MediaTrackControls } from '@/components/media-track-controls'
 import { AlwaysAwakeToggle } from '@/components/always-awake-toggle'
 
@@ -33,34 +31,70 @@ function buildPresets(customRestSeconds: number) {
   return [...unique.values()].sort((a, b) => a.seconds - b.seconds)
 }
 
-export type ExerciseStopwatchProps = {
+/** Opaque floating bar shown when the active timer belongs to another exercise. */
+export function RestTimerBar({
+  exerciseName,
+  remaining,
+  running,
+  finished,
+  onOpen,
+}: {
   exerciseName: string
-  sessionLabel?: string
+  remaining: number
+  running: boolean
+  finished: boolean
+  onOpen: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-haptic="light"
+      className={cn(
+        'w-full min-h-[44px] rounded-lg border px-3 shadow-lg',
+        'flex items-center gap-2 transition-colors',
+        'border-neon-orange/50 bg-card text-neon-orange',
+      )}
+    >
+      <Timer className="w-4 h-4 shrink-0" />
+      <span className="font-sans text-base font-bold tabular-nums tracking-wider shrink-0">
+        {finished ? 'GO!' : formatTime(remaining)}
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground truncate">
+        {exerciseName}
+      </span>
+      <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
+        {finished ? 'Done' : running ? 'Running' : 'Paused'}
+        <ChevronRight className="w-3.5 h-3.5" />
+      </span>
+    </button>
+  )
+}
+
+export type ExerciseStopwatchProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   duration: number
   remaining: number
   running: boolean
   finished: boolean
+  timerActive: boolean
   onSelectPreset: (seconds: number) => void
   onToggleRun: () => void
   onReset: () => void
-  compact?: boolean
 }
 
 export function ExerciseStopwatch({
-  exerciseName,
-  sessionLabel = 'Rest timer',
   open,
   onOpenChange,
   duration,
   remaining,
   running,
   finished,
+  timerActive,
   onSelectPreset,
   onToggleRun,
   onReset,
-  compact = false,
 }: ExerciseStopwatchProps) {
   const { settings } = useSettings()
   const presets = useMemo(
@@ -68,47 +102,10 @@ export function ExerciseStopwatch({
     [settings.restTimerMinutes],
   )
 
-  useWakeLock(settings.alwaysAwake && running)
-
   const progress = duration > 0 ? remaining / duration : 0
   const activePreset =
     presets.find((preset) => preset.seconds === duration)?.label ??
     (duration > 0 ? formatTime(duration) : undefined)
-  const timerActive = duration > 0 && (running || remaining > 0) && !finished
-
-  const toggleRunRef = useRef(onToggleRun)
-  toggleRunRef.current = onToggleRun
-
-  useMediaSession({
-    enabled: timerActive,
-    title: finished ? 'Rest complete' : `${sessionLabel} · ${formatTime(remaining)}`,
-    artist: 'CINDERBLOCK',
-    album: activePreset ? `${activePreset} rest` : 'Rest stopwatch',
-    playbackState: running ? 'playing' : 'paused',
-    duration,
-    position: Math.max(0, duration - remaining),
-    enableTrackControls: true,
-    onPlay: () => toggleRunRef.current(),
-    onPause: () => toggleRunRef.current(),
-  })
-
-  if (compact) {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        data-haptic="light"
-        className={cn(
-          'w-full min-h-[44px] rounded-lg border font-mono text-xs tracking-widest uppercase',
-          'flex items-center justify-center gap-2 transition-colors',
-          'border-neon-orange/50 bg-neon-orange/10 text-neon-orange',
-        )}
-      >
-        <Timer className="w-4 h-4" />
-        {exerciseName} · {running ? formatTime(remaining) : finished ? 'Done' : 'Paused'}
-      </button>
-    )
-  }
 
   return (
     <div className="mb-5">
