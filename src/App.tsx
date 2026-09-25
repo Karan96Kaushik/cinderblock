@@ -15,6 +15,7 @@ import { AiChatPage } from '@/components/gym/ai-chat/ai-chat-page'
 import { LoginScreen, hasSkippedLogin } from '@/components/auth/login-screen'
 import { paths, type AiChatModeParam } from '@/lib/routes'
 
+
 function OptionalLoginRedirect() {
   const navigate = useNavigate()
   const location = useLocation()
