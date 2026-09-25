@@ -334,6 +334,59 @@
   background-color: color-mix(in oklch, var(--card) 94%, var(--background));
 }
 
+/* Status pills — fixed hues so status reads the same across theme presets */
+.status-pill-complete {
+  color: oklch(0.8 0.18 150);
+  background-color: oklch(0.72 0.18 150 / 0.16);
+  border-color: oklch(0.72 0.18 150 / 0.45);
+}
+
+.status-pill-progress {
+  color: oklch(0.86 0.16 85);
+  background-color: oklch(0.8 0.16 85 / 0.14);
+  border-color: oklch(0.8 0.16 85 / 0.45);
+}
+
+.status-pill-run {
+  color: oklch(0.8 0.06 240);
+  background-color: oklch(0.7 0.06 240 / 0.16);
+  border-color: oklch(0.7 0.06 240 / 0.4);
+}
+
+.status-pill-neutral {
+  color: var(--muted-foreground);
+  background-color: var(--muted);
+  border-color: var(--border);
+}
+
+[data-theme-mode='light'] .status-pill-complete {
+  color: oklch(0.45 0.14 150);
+}
+
+[data-theme-mode='light'] .status-pill-progress {
+  color: oklch(0.5 0.12 75);
+}
+
+[data-theme-mode='light'] .status-pill-run {
+  color: oklch(0.45 0.07 240);
+}
+
+.trend-up {
+  color: oklch(0.78 0.17 150);
+}
+
+.trend-down {
+  color: oklch(0.7 0.18 25);
+}
+
+[data-theme-mode='light'] .trend-up {
+  color: oklch(0.48 0.14 150);
+}
+
+[data-theme-mode='light'] .trend-down {
+  color: oklch(0.52 0.18 25);
+}
+
 .neon-border-red {
   box-shadow:
     0 0 6px  var(--neon-red),

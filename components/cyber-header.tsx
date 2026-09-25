@@ -19,9 +19,16 @@ interface CyberHeaderProps {
   onRunningClick?: () => void
   onMetricsClick?: () => void
   onSettingsClick?: () => void
+  onAiChatClick?: () => void
 }
 
-export function CyberHeader({ onTrainingClick, onRunningClick, onMetricsClick, onSettingsClick }: CyberHeaderProps) {
+export function CyberHeader({
+  onTrainingClick,
+  onRunningClick,
+  onMetricsClick,
+  onSettingsClick,
+  onAiChatClick,
+}: CyberHeaderProps) {
   const [open, setOpen] = useState(false)
   const drawerId = useId()
   const location = useLocation()
@@ -92,6 +99,19 @@ export function CyberHeader({ onTrainingClick, onRunningClick, onMetricsClick, o
                   <span className="w-1.5 h-1.5 rounded-full bg-neon-yellow animate-pulse" />
                   ONLINE
                 </div>
+
+                {onAiChatClick && (
+                  <button
+                    type="button"
+                    aria-label="Discuss with AI"
+                    title="Discuss with AI"
+                    onClick={() => handleAction(onAiChatClick)}
+                    data-haptic="selection"
+                    className="h-10 w-10 rounded-lg border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40 transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-orange/50"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -212,6 +232,16 @@ export function CyberHeader({ onTrainingClick, onRunningClick, onMetricsClick, o
                       disabled={!onMetricsClick}
                       onClick={() => handleAction(onMetricsClick)}
                     />
+                    {onAiChatClick && (
+                      <DrawerLink
+                        label="Discuss with AI"
+                        description="Ask about or edit your program"
+                        icon={Sparkles}
+                        visible={open}
+                        delay={300}
+                        onClick={() => handleAction(onAiChatClick)}
+                      />
+                    )}
                     <DrawerLink
                       label="Settings"
                       description="Fonts, history, alerts"

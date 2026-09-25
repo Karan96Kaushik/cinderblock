@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { Footprints } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   formatPlanSummary,
   getRunTotalMinutes,
@@ -31,7 +32,12 @@ export function RunSessionDetails({ run, showDate = false }: RunSessionDetailsPr
           </div>
           <p className="font-mono text-xs text-muted-foreground mt-0.5">{displayTime}</p>
         </div>
-        <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded shrink-0 bg-neon-yellow/10 text-neon-yellow">
+        <span
+          className={cn(
+            'font-mono text-[10px] uppercase px-2 py-0.5 rounded border shrink-0',
+            run.endedEarly ? 'status-pill-progress' : 'status-pill-complete',
+          )}
+        >
           {run.endedEarly ? 'Ended early' : 'Complete'}
         </span>
       </div>
