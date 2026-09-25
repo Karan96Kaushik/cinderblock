@@ -275,17 +275,18 @@ export function WorkoutFlow({
   const currentExercise = exercises[currentStep]
   const currentLog = currentExercise ? dayLog.exercises[currentExercise.name] : undefined
   const timerOnOtherExercise =
-    restTimer.isActive &&
+    restTimer.isPending &&
     restTimer.exerciseName != null &&
     restTimer.exerciseName !== currentExercise?.name
 
+  // Every exercise keeps its own timer controls; picking a preset takes over the
+  // single shared countdown, so a stale timer never blocks starting a fresh one.
   const renderRestTimer = (exerciseName: string, isActive: boolean) => {
     if (!isActive) return null
     const ownsTimer = restTimer.exerciseName === exerciseName
-    if (!ownsTimer && restTimer.isActive) return null
     return (
       <ExerciseStopwatch
-        open={ownsTimer && restTimer.open}
+        open={restTimer.openExerciseName === exerciseName}
         onOpenChange={(next) => restTimer.setOpenFor(exerciseName, next)}
         duration={ownsTimer ? restTimer.duration : 0}
         remaining={ownsTimer ? restTimer.remaining : 0}
@@ -300,9 +301,11 @@ export function WorkoutFlow({
   }
 
   const goToTimerExercise = useCallback(() => {
-    const index = exercises.findIndex((ex) => ex.name === restTimer.exerciseName)
+    const owner = restTimer.exerciseName
+    if (!owner) return
+    const index = exercises.findIndex((ex) => ex.name === owner)
     if (index === -1) return
-    restTimer.setOpen(true)
+    restTimer.setOpenFor(owner, true)
     goToStep(index)
   }, [exercises, restTimer, goToStep])
 

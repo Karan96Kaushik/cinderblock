@@ -42,7 +42,9 @@ export function useRestTimer(workoutDate: string) {
   const { settings } = useSettings()
   const initial = useRef(loadInitialState(workoutDate)).current
   const [exerciseName, setExerciseName] = useState<string | null>(initial.exerciseName)
-  const [open, setOpen] = useState(initial.open)
+  const [openExerciseName, setOpenExerciseName] = useState<string | null>(
+    initial.open ? initial.exerciseName : null,
+  )
   const [duration, setDuration] = useState(initial.duration)
   const [remaining, setRemaining] = useState(initial.remaining)
   const [running, setRunning] = useState(initial.running)
@@ -78,15 +80,17 @@ export function useRestTimer(workoutDate: string) {
       endAtRef.current = Date.now() + seconds * 1000
       setStartGeneration((generation) => generation + 1)
       setRunning(true)
-      if (expand) setOpen(true)
+      if (expand) setOpenExerciseName(ownerExerciseName)
     },
     [clearTick],
   )
 
-  /** Claims the panel for an exercise so it can be expanded before a preset is picked. */
-  const setOpenFor = useCallback((ownerExerciseName: string, nextOpen: boolean) => {
-    if (nextOpen) setExerciseName(ownerExerciseName)
-    setOpen(nextOpen)
+  /**
+   * Expands the panel for an exercise. Kept separate from the countdown owner so
+   * browsing another exercise's presets does not hijack a running timer.
+   */
+  const setOpenFor = useCallback((panelExerciseName: string, nextOpen: boolean) => {
+    setOpenExerciseName(nextOpen ? panelExerciseName : null)
   }, [])
 
   const reset = useCallback(() => {
@@ -141,7 +145,7 @@ export function useRestTimer(workoutDate: string) {
       remainingSeconds: remaining,
       running,
       startedAtIso,
-      open,
+      open: openExerciseName === exerciseName,
       finished,
     })
   }, [
@@ -151,7 +155,7 @@ export function useRestTimer(workoutDate: string) {
     remaining,
     running,
     startedAtIso,
-    open,
+    openExerciseName,
     finished,
   ])
 
@@ -188,8 +192,12 @@ export function useRestTimer(workoutDate: string) {
     [beginCountdown],
   )
 
-  const isActive = duration > 0 && (running || remaining > 0 || finished)
   const timerActive = duration > 0 && (running || remaining > 0) && !finished
+  /**
+   * A countdown worth surfacing from another exercise: still ticking, or paused
+   * partway through. A finished or freshly reset timer is not worth interrupting for.
+   */
+  const isPending = timerActive && (running || remaining < duration)
 
   useWakeLock(settings.alwaysAwake && running)
 
@@ -213,14 +221,13 @@ export function useRestTimer(workoutDate: string) {
 
   return {
     exerciseName,
-    open,
-    setOpen,
+    openExerciseName,
     setOpenFor,
     duration,
     remaining,
     running,
     finished,
-    isActive,
+    isPending,
     timerActive,
     beginCountdown,
     selectPreset,
