@@ -236,7 +236,7 @@ function BodyStatCard({ label, unit, trend }: { label: string; unit: string; tre
         <TrendIndicator
           tone="neutral"
           direction={trend.delta > 0 ? 'up' : trend.delta < 0 ? 'down' : 'flat'}
-          text={`${trend.delta > 0 ? '+' : ''}${trend.delta.toFixed(1)} ${unit} ${trend.referenceLabel}`}
+          text={`${Math.abs(trend.delta).toFixed(1)} ${unit} ${trend.referenceLabel}`}
         />
       ) : (
         <div className="font-mono text-[10px] text-muted-foreground/70 mt-2">First entry</div>
@@ -296,7 +296,7 @@ function getGoalProgress(
     const delta = body.trend.delta!
     return {
       metricLabel: `${body.name} trend`,
-      valueLabel: `${delta > 0 ? '+' : ''}${delta.toFixed(1)} ${body.unit}`,
+      valueLabel: `${Math.abs(delta).toFixed(1)} ${body.unit}`,
       trend: {
         direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat',
         text: body.trend.referenceLabel ?? '',
@@ -394,12 +394,14 @@ function WeekRunRow({ run }: { run: RunSessionLog }) {
   const displayDate = format(parseISO(`${run.date}T12:00:00`), 'EEE, MMM d')
 
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-border/50 last:border-0">
-      <span className="font-mono text-xs text-muted-foreground w-[88px] shrink-0 pt-0.5">{displayDate}</span>
-      <span className="font-sans text-sm text-foreground flex-1 min-w-0 break-words">
-        {formatRunSummary(run)}
-      </span>
-      <span className={cn(PILL_BASE, 'status-pill-run')}>Run</span>
+    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-mono text-xs text-muted-foreground">{displayDate}</span>
+          <span className={cn(PILL_BASE, 'status-pill-run')}>Run</span>
+        </div>
+        <p className="font-sans text-sm text-foreground break-words">{formatRunSummary(run)}</p>
+      </div>
       <span className="w-4 shrink-0" aria-hidden />
     </div>
   )
@@ -450,13 +452,17 @@ function WeekWorkoutRow({
       onClick={() => onOpen(date)}
       data-haptic="selection"
       aria-label={`Open ${displayDate} session details`}
-      className="group w-full text-left flex items-start gap-3 py-2.5 border-b border-border/50 last:border-0 hover:bg-neon-orange/5 -mx-2 px-2 w-[calc(100%+1rem)] rounded-md transition-colors"
+      className="group text-left flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0 hover:bg-neon-orange/5 -mx-2 px-2 w-[calc(100%+1rem)] rounded-md transition-colors"
     >
-      <span className="font-mono text-xs text-muted-foreground w-[88px] shrink-0 pt-0.5">{displayDate}</span>
-      <span className="font-sans text-sm text-foreground flex-1 min-w-0 break-words">
-        {formatDayLogSummary(log, resolvedProgram)}
-      </span>
-      <span className={cn(PILL_BASE, WEEK_STATUS_STYLES[status])}>{WEEK_STATUS_LABELS[status]}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-mono text-xs text-muted-foreground">{displayDate}</span>
+          <span className={cn(PILL_BASE, WEEK_STATUS_STYLES[status])}>{WEEK_STATUS_LABELS[status]}</span>
+        </div>
+        <p className="font-sans text-sm text-foreground break-words">
+          {formatDayLogSummary(log, resolvedProgram)}
+        </p>
+      </div>
       <ChevronRight
         className="w-4 h-4 shrink-0 text-muted-foreground/60 group-hover:text-neon-orange group-hover:translate-x-0.5 transition-all"
         aria-hidden
