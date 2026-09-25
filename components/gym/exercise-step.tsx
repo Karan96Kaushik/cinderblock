@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -81,8 +81,16 @@ export function ExerciseStep({
     setVisibleSetCount(computeVisibleSetCount(sets, exercise.sets, isAddressed))
   }, [exercise.name, exercise.sets, isAddressed])
 
+  // Sets after the first are prefilled from the previous set on focus, so they are
+  // already "complete" before the user types. Tracking which sets have fired keeps
+  // auto-start working for them without restarting on every later keystroke.
+  const autoStartedSets = useRef<Set<number>>(new Set())
+
+  useEffect(() => {
+    autoStartedSets.current = new Set()
+  }, [exercise.name])
+
   const updateSet = (index: number, field: keyof SetLog, value: string) => {
-    const wasComplete = isSetComplete(sets[index], isTimedHold)
     const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
     const nowComplete = isSetComplete(next[index], isTimedHold)
 
@@ -96,10 +104,11 @@ export function ExerciseStep({
 
     if (
       settings.autoStartRestTimer &&
-      !wasComplete &&
       nowComplete &&
+      !autoStartedSets.current.has(index) &&
       index < exercise.sets - 1
     ) {
+      autoStartedSets.current.add(index)
       onAutoStartRestTimer?.()
     }
 
