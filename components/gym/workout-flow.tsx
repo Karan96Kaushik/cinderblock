@@ -393,7 +393,7 @@ export function WorkoutFlow({
             ref={progressStripRef}
             role="group"
             aria-label="Jump to any exercise"
-            className="flex flex-1 items-center gap-2 overflow-x-auto scrollbar-none py-1"
+            className="flex flex-1 items-center gap-0 overflow-x-auto scrollbar-none py-0"
             style={{ scrollbarWidth: 'none' }}
           >
             {exercises.map((ex, i) => {
@@ -410,21 +410,27 @@ export function WorkoutFlow({
                   data-haptic="selection"
                   data-step={i}
                   data-current={isCurrent ? 'true' : 'false'}
-                  title={ex.name}
+                  title={`${i + 1}. ${ex.name}`}
                   aria-label={`Jump to exercise ${i + 1} of ${exercises.length}: ${ex.name}`}
                   aria-current={isCurrent ? 'true' : undefined}
                   className={cn(
-                    'shrink-0 rounded-full transition-all focus-visible:outline-none',
-                    'focus-visible:ring-2 focus-visible:ring-neon-orange/50',
-                    isCurrent
-                      ? 'w-6 h-3 bg-neon-orange animate-pulse rounded-full'
-                      : done
-                        ? 'w-3 h-3 bg-neon-orange/80'
-                        : skipped
-                          ? 'w-3 h-3 bg-muted-foreground/40 ring-1 ring-muted-foreground/60'
-                          : 'w-3 h-3 bg-border hover:bg-muted-foreground/50',
+                    'group shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-orange/50',
                   )}
-                />
+                >
+                  <span
+                    className={cn(
+                      'rounded-full transition-all pointer-events-none',
+                      isCurrent
+                        ? 'h-3 w-6 bg-neon-orange animate-pulse'
+                        : done
+                          ? 'h-3 w-3 bg-neon-orange/80'
+                          : skipped
+                            ? 'h-3 w-3 bg-muted-foreground/40 ring-1 ring-muted-foreground/60'
+                            : 'h-3 w-3 bg-border group-hover:bg-muted-foreground/50',
+                    )}
+                  />
+                </button>
               )
             })}
           </div>
