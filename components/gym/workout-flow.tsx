@@ -121,7 +121,7 @@ export function WorkoutFlow({
     if (pending != null) {
       pendingStepRef.current = null
       if (carouselApi.selectedScrollSnap() !== pending) {
-        carouselApi.scrollTo(pending)
+        carouselApi.scrollTo(pending, true)
       } else {
         syncFromCarousel()
       }
@@ -175,7 +175,7 @@ export function WorkoutFlow({
 
         const slidesMoved = maxProgressDelta * Math.max(snapCount() - 1, 1)
         if (slidesMoved < EXERCISE_SWIPE_COMMIT_RATIO) {
-          carouselApi.scrollTo(startIndex)
+          carouselApi.scrollTo(startIndex, true)
         }
       })
     }
@@ -204,17 +204,22 @@ export function WorkoutFlow({
         setCurrentStep((prev) => (prev === clamped ? prev : clamped))
         return
       }
-      carouselApi.scrollTo(clamped)
+      // Jump immediately so the header, dots, and visible exercise land together.
+      // Animated scrolls update the counter on select, before the slide arrives.
+      carouselApi.scrollTo(clamped, true)
     },
     [carouselApi, exercises.length],
   )
 
   const goPrev = useCallback(() => {
-    carouselApi?.scrollPrev()
+    if (!carouselApi) return
+    carouselApi.scrollTo(Math.max(0, carouselApi.selectedScrollSnap() - 1), true)
   }, [carouselApi])
 
   const goNext = useCallback(() => {
-    carouselApi?.scrollNext()
+    if (!carouselApi) return
+    const last = Math.max(carouselApi.scrollSnapList().length - 1, 0)
+    carouselApi.scrollTo(Math.min(last, carouselApi.selectedScrollSnap() + 1), true)
   }, [carouselApi])
 
   // Scroll the active progress dot into view when step changes
