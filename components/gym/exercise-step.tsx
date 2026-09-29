@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
-import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
+import { ChevronDown, ChevronUp, Check, Keyboard, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExerciseLog, LastExerciseRecord, ProgramExercise, SetLog } from './gym-tracker'
 import { createEmptySet, formatSetSummary, hasSetLogData, isSetComplete } from './gym-tracker'
@@ -15,27 +15,71 @@ interface ExerciseStepProps {
   isActive?: boolean
   restTimer?: ReactNode
   onAutoStartRestTimer?: () => void
+  programReminders?: string[]
   onUpdateSets: (sets: SetLog[]) => void
   onMarkDone: () => void
   onSkip: () => void
   onMarkUndone: () => void
 }
 
-function computeVisibleSetCount(
-  sets: SetLog[],
-  totalSets: number,
-  isAddressed: boolean,
-): number {
-  if (isAddressed) return totalSets
+function setsForExercise(log: ExerciseLog | undefined, exercise: ProgramExercise): SetLog[] {
+  const logged = log?.sets ?? []
+  if (logged.length >= exercise.sets) return logged
+  return [
+    ...logged,
+    ...Array.from({ length: exercise.sets - logged.length }, () => createEmptySet(exercise)),
+  ]
+}
 
-  let lastWithData = -1
-  for (let i = 0; i < Math.min(sets.length, totalSets); i++) {
-    if (hasSetLogData(sets[i])) lastWithData = i
-  }
+function LogField({
+  label,
+  value,
+  onChange,
+  onFocus,
+  disabled,
+  inputMode,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  onFocus: () => void
+  disabled: boolean
+  inputMode: 'numeric' | 'decimal'
+}) {
+  const showHint = !disabled && value.trim() === ''
 
-  if (lastWithData === -1) return 1
-  if (lastWithData >= totalSets - 1) return totalSets
-  return Math.min(lastWithData + 2, totalSets)
+  return (
+    <div className="flex-1 min-w-0">
+      <label className="font-mono text-xs text-muted-foreground block mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          inputMode={inputMode}
+          enterKeyHint="done"
+          autoComplete="off"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={onFocus}
+          placeholder={disabled ? '—' : 'Tap to enter'}
+          disabled={disabled}
+          aria-label={label}
+          className={cn(
+            'w-full h-11 rounded-md bg-background border-2 px-3',
+            showHint ? 'pr-9' : 'pr-3',
+            'font-mono text-base text-foreground placeholder:text-muted-foreground/75',
+            'border-neon-orange/50 focus:outline-none focus:border-neon-orange focus:ring-2 focus:ring-neon-orange/25',
+            'transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:border-border disabled:bg-input/40',
+          )}
+        />
+        {showHint && (
+          <Keyboard
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-orange/80 pointer-events-none"
+            aria-hidden
+          />
+        )}
+      </div>
+    </div>
+  )
 }
 
 function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
@@ -56,6 +100,7 @@ export function ExerciseStep({
   lastRecord,
   isActive = true,
   restTimer,
+  programReminders = [],
   onAutoStartRestTimer,
   onUpdateSets,
   onMarkDone,
@@ -64,22 +109,16 @@ export function ExerciseStep({
 }: ExerciseStepProps) {
   const { settings } = useSettings()
   const [notesOpen, setNotesOpen] = useState(false)
+  const [remindersOpen, setRemindersOpen] = useState(true)
 
-  const sets =
-    log?.sets ?? Array.from({ length: exercise.sets }, () => createEmptySet(exercise))
+  const sets = setsForExercise(log, exercise)
   const isCompleted = log?.completed ?? false
   const isSkipped = log?.skipped ?? false
   const isAddressed = isCompleted || isSkipped
   const isTimedHold = isTimedHoldExercise(exercise)
   const targetLabel = isTimedHold ? exercise.duration : exercise.reps
-
-  const [visibleSetCount, setVisibleSetCount] = useState(() =>
-    computeVisibleSetCount(sets, exercise.sets, isAddressed),
-  )
-
-  useEffect(() => {
-    setVisibleSetCount(computeVisibleSetCount(sets, exercise.sets, isAddressed))
-  }, [exercise.name, exercise.sets, isAddressed])
+  const displayedSets = sets.slice(0, exercise.sets)
+  const loggedSetCount = displayedSets.filter((set) => isSetComplete(set, isTimedHold)).length
 
   // Sets after the first are prefilled from the previous set on focus, so they are
   // already "complete" before the user types. Tracking which sets have fired keeps
@@ -93,14 +132,6 @@ export function ExerciseStep({
   const updateSet = (index: number, field: keyof SetLog, value: string) => {
     const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
     const nowComplete = isSetComplete(next[index], isTimedHold)
-
-    if (
-      hasSetLogData(next[index]) &&
-      index === visibleSetCount - 1 &&
-      visibleSetCount < exercise.sets
-    ) {
-      setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
-    }
 
     if (
       settings.autoStartRestTimer &&
@@ -120,13 +151,8 @@ export function ExerciseStep({
     if (next !== sets) {
       onUpdateSets(next)
     }
-
-    if (index > 0 && index === visibleSetCount - 1 && visibleSetCount < exercise.sets) {
-      setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
-    }
   }
 
-  const visibleSets = sets.slice(0, visibleSetCount)
   const lastSessionSummary = lastRecord ? formatSetSummary(lastRecord.log) : null
 
   return (
@@ -182,19 +208,40 @@ export function ExerciseStep({
         )}
       </div>
 
-      {/* Set rows */}
+      <div className="mb-3 rounded-lg border border-border/60 bg-card/30 px-3 py-2.5 space-y-2">
+        <div>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block">
+            This session
+          </span>
+          <span
+            className={cn(
+              'font-mono text-sm',
+              loggedSetCount > 0 ? 'text-neon-orange' : 'text-foreground',
+            )}
+          >
+            Set {loggedSetCount} of {exercise.sets} logged
+          </span>
+        </div>
+        {lastRecord && lastSessionSummary && (
+          <div>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block">
+              Last session · {format(new Date(`${lastRecord.date}T12:00:00`), 'MMM d')}
+            </span>
+            <span className="font-mono text-xs text-foreground/80">{lastSessionSummary}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Every programmed set is listed so later sets are never hidden. */}
       <div className="space-y-2 mb-5">
-        <div className="flex items-center justify-between mb-1">
+        <div className="mb-1">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             Log sets
           </span>
-          {!isAddressed && (
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {visibleSetCount} of {exercise.sets} shown
-            </span>
-          )}
         </div>
-        {visibleSets.map((set, i) => (
+        {displayedSets.map((set, i) => {
+          const setDone = isSetComplete(set, isTimedHold)
+          return (
           <div
             key={i}
             className={cn(
@@ -204,139 +251,133 @@ export function ExerciseStep({
               !isAddressed && 'bg-card/50 border-border',
             )}
           >
-            <span className="font-mono text-xs text-muted-foreground w-10 shrink-0">
+            <span className="font-mono text-xs text-muted-foreground w-14 shrink-0 inline-flex items-center gap-1">
               SET {i + 1}
+              {setDone && <Check className="w-3 h-3 text-neon-orange" aria-hidden />}
             </span>
-            <div className="flex-1 flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2 min-w-0">
               {isTimedHold ? (
-                <div className="flex-1">
-                  <label className="font-mono text-xs text-muted-foreground block mb-1">
-                    Seconds held
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={set.seconds ?? ''}
-                    onChange={(e) => updateSet(i, 'seconds', e.target.value)}
-                    onFocus={() => handleSetFocus(i)}
-                    placeholder="—"
-                    disabled={isAddressed}
-                    className={cn(
-                      'w-full h-11 bg-input/60 border border-border rounded-md px-3',
-                      'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
-                      'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
-                      'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                    )}
-                  />
-                </div>
+                <LogField
+                  label="Seconds held"
+                  value={set.seconds ?? ''}
+                  onChange={(value) => updateSet(i, 'seconds', value)}
+                  onFocus={() => handleSetFocus(i)}
+                  disabled={isAddressed}
+                  inputMode="numeric"
+                />
               ) : (
                 <>
-                  <div className="flex-1">
-                    <label className="font-mono text-xs text-muted-foreground block mb-1">
-                      Weight (kg)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={set.weight}
-                      onChange={(e) => updateSet(i, 'weight', e.target.value)}
-                      onFocus={() => handleSetFocus(i)}
-                      placeholder="—"
-                      disabled={isAddressed}
-                      className={cn(
-                        'w-full h-11 bg-input/60 border border-border rounded-md px-3',
-                        'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
-                        'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
-                        'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                      )}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="font-mono text-xs text-muted-foreground block mb-1">
-                      Reps
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={set.reps}
-                      onChange={(e) => updateSet(i, 'reps', e.target.value)}
-                      onFocus={() => handleSetFocus(i)}
-                      placeholder="—"
-                      disabled={isAddressed}
-                      className={cn(
-                        'w-full h-11 bg-input/60 border border-border rounded-md px-3',
-                        'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
-                        'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
-                        'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                      )}
-                    />
-                  </div>
+                  <LogField
+                    label="Weight (kg)"
+                    value={set.weight}
+                    onChange={(value) => updateSet(i, 'weight', value)}
+                    onFocus={() => handleSetFocus(i)}
+                    disabled={isAddressed}
+                    inputMode="decimal"
+                  />
+                  <LogField
+                    label="Reps"
+                    value={set.reps}
+                    onChange={(value) => updateSet(i, 'reps', value)}
+                    onFocus={() => handleSetFocus(i)}
+                    disabled={isAddressed}
+                    inputMode="numeric"
+                  />
                 </>
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
-      {(exercise.muscles.length > 0 || (lastRecord && lastSessionSummary)) && (
-        <div className="mb-5 space-y-3">
-          {exercise.muscles.length > 0 && (
-            <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1.5">
-                Muscles trained
+      {exercise.muscles.length > 0 && (
+        <div className="mb-5">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1.5">
+            Muscles trained
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {exercise.muscles.map((muscle) => (
+              <span
+                key={muscle}
+                className="font-mono text-xs bg-neon-orange/10 border border-neon-orange/20 rounded px-2 py-0.5 text-neon-orange/80"
+              >
+                {muscle}
               </span>
-              <div className="flex flex-wrap gap-1.5">
-                {exercise.muscles.map((muscle) => (
-                  <span
-                    key={muscle}
-                    className="font-mono text-xs bg-neon-orange/10 border border-neon-orange/20 rounded px-2 py-0.5 text-neon-orange/80"
-                  >
-                    {muscle}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {lastRecord && lastSessionSummary && (
-            <div className="rounded-lg border border-border/60 bg-card/30 px-3 py-2.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">
-                Last session · {format(new Date(`${lastRecord.date}T12:00:00`), 'MMM d')}
-              </span>
-              <span className="font-mono text-xs text-foreground/80">{lastSessionSummary}</span>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
 
       {isActive && restTimer}
 
-      {/* Notes (collapsible) */}
-      {exercise.notes && exercise.notes.length > 0 && (
-        <div className="mb-2">
-          <button
-            onClick={() => setNotesOpen((o) => !o)}
-            data-haptic="light"
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors min-h-[36px] w-full text-left"
-          >
-            <span className="font-mono text-xs uppercase tracking-wider">Notes</span>
-            {notesOpen ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
+      <div className="mb-2 space-y-3">
+        {exercise.notes && exercise.notes.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setNotesOpen((o) => !o)}
+              data-haptic="light"
+              aria-expanded={notesOpen}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors min-h-[36px] w-full text-left"
+            >
+              <span className="font-mono text-xs uppercase tracking-wider">Exercise notes</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider border border-border rounded px-1.5 py-0.5 text-muted-foreground">
+                This exercise
+              </span>
+              {notesOpen ? (
+                <ChevronUp className="w-3.5 h-3.5 ml-auto" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 ml-auto" />
+              )}
+            </button>
+            {notesOpen && (
+              <ul className="mt-2 space-y-1.5 pl-2 border-l-2 border-neon-orange/20">
+                {exercise.notes.map((note, i) => (
+                  <li key={i} className="font-mono text-xs text-muted-foreground flex gap-2">
+                    <span className="text-neon-orange/40 shrink-0">›</span>
+                    <span>{note}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </button>
-          {notesOpen && (
-            <ul className="mt-2 space-y-1.5 pl-2 border-l-2 border-neon-orange/20">
-              {exercise.notes.map((note, i) => (
-                <li key={i} className="font-mono text-xs text-muted-foreground flex gap-2">
-                  <span className="text-neon-orange/40 shrink-0">›</span>
-                  <span>{note}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {programReminders.length > 0 && (
+          <div className="rounded-lg border border-border/40 bg-card/20 px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => setRemindersOpen((o) => !o)}
+              data-haptic="light"
+              aria-expanded={remindersOpen}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors min-h-[36px] w-full text-left"
+            >
+              <span className="font-mono text-xs uppercase tracking-wider text-neon-orange/80">
+                Program reminders
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-wider border border-neon-orange/30 rounded px-1.5 py-0.5 text-neon-orange/80">
+                Every workout
+              </span>
+              {remindersOpen ? (
+                <ChevronUp className="w-3.5 h-3.5 ml-auto" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 ml-auto" />
+              )}
+            </button>
+            {remindersOpen && (
+              <ul className="mt-2 space-y-1.5">
+                {programReminders.map((note, i) => (
+                  <li key={i} className="font-mono text-xs text-muted-foreground/80 flex gap-2">
+                    <span className="text-neon-orange/30 shrink-0">›</span>
+                    <span>{note}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Actions */}
       {/* {isAddressed ? (

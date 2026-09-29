@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
-import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Sound } from '@/lib/sounds'
 import { usePreventPullToRefresh } from '@/hooks/use-prevent-pull-to-refresh'
@@ -66,6 +66,11 @@ export function WorkoutFlow({
     return firstPending === -1 ? 0 : firstPending
   })
 
+  // Options must stay referentially stable. A new object each render makes Embla
+  // reInit and can leave the header on a different exercise than the slide.
+  const initialStepRef = useRef(currentStep)
+  const pendingStepRef = useRef<number | null>(null)
+
   const progressStripRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [carouselApi, setCarouselApi] = useState<CarouselApi>()
@@ -74,6 +79,7 @@ export function WorkoutFlow({
     () => ({
       duration: CAROUSEL_SCROLL_DURATION,
       dragFree: false,
+      startIndex: initialStepRef.current,
     }),
     [],
   )
@@ -96,8 +102,9 @@ export function WorkoutFlow({
   useEffect(() => {
     if (!carouselApi) return
 
-    const onSelect = () => {
-      setCurrentStep(carouselApi.selectedScrollSnap())
+    const syncFromCarousel = () => {
+      const index = carouselApi.selectedScrollSnap()
+      setCurrentStep((prev) => (prev === index ? prev : index))
     }
 
     const onInit = () => applyCarouselSnapPhysics(carouselApi)
@@ -106,15 +113,28 @@ export function WorkoutFlow({
     carouselApi.on('init', onInit)
     carouselApi.on('reInit', onInit)
     carouselApi.on('pointerDown', onPointerDown)
-    carouselApi.on('select', onSelect)
+    carouselApi.on('select', syncFromCarousel)
+    carouselApi.on('settle', syncFromCarousel)
     onInit()
-    onSelect()
+
+    const pending = pendingStepRef.current
+    if (pending != null) {
+      pendingStepRef.current = null
+      if (carouselApi.selectedScrollSnap() !== pending) {
+        carouselApi.scrollTo(pending)
+      } else {
+        syncFromCarousel()
+      }
+    } else {
+      syncFromCarousel()
+    }
 
     return () => {
       carouselApi.off('init', onInit)
       carouselApi.off('reInit', onInit)
       carouselApi.off('pointerDown', onPointerDown)
-      carouselApi.off('select', onSelect)
+      carouselApi.off('select', syncFromCarousel)
+      carouselApi.off('settle', syncFromCarousel)
     }
   }, [carouselApi])
 
@@ -171,18 +191,22 @@ export function WorkoutFlow({
     }
   }, [carouselApi])
 
-  useEffect(() => {
-    if (!carouselApi) return
-    if (carouselApi.selectedScrollSnap() !== currentStep) {
-      carouselApi.scrollTo(currentStep)
-    }
-  }, [carouselApi, currentStep])
-
   const goToStep = useCallback(
     (index: number) => {
-      carouselApi?.scrollTo(index)
+      const last = Math.max(exercises.length - 1, 0)
+      const clamped = Math.max(0, Math.min(index, last))
+      if (!carouselApi) {
+        pendingStepRef.current = clamped
+        setCurrentStep(clamped)
+        return
+      }
+      if (carouselApi.selectedScrollSnap() === clamped) {
+        setCurrentStep((prev) => (prev === clamped ? prev : clamped))
+        return
+      }
+      carouselApi.scrollTo(clamped)
     },
-    [carouselApi],
+    [carouselApi, exercises.length],
   )
 
   const goPrev = useCallback(() => {
@@ -245,7 +269,7 @@ export function WorkoutFlow({
     const anyPending = exercises.findIndex(
       (ex, i) => i !== fromStep && !isExerciseAddressed(dayLog.exercises[ex.name]),
     )
-    setCurrentStep(nextPending !== -1 ? nextPending : anyPending !== -1 ? anyPending : fromStep)
+    goToStep(nextPending !== -1 ? nextPending : anyPending !== -1 ? anyPending : fromStep)
   }
 
   const handleMarkDoneAt = (stepIndex: number) => {
@@ -322,69 +346,88 @@ export function WorkoutFlow({
   return (
     <div className="h-[calc(100dvh-57px)] flex flex-col min-h-0 overscroll-none">
       {/* Workout header row */}
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+      <div className="px-4 pt-4 pb-2 flex items-center gap-2">
         <button
           onClick={onBack}
           data-haptic="light"
-          className="flex items-center gap-1 text-muted-foreground hover:text-neon-orange transition-colors min-h-[44px]"
+          title="Leave this session and pick a different workout"
+          aria-label="Change workout"
+          className="shrink-0 flex items-center gap-1 text-muted-foreground hover:text-neon-orange transition-colors min-h-[44px]"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span className="font-mono text-xs">Change</span>
+          <span className="font-mono text-[10px] leading-tight text-left">
+            Change
+            <br />
+            workout
+          </span>
         </button>
-        <div className="text-center">
-          <div className="font-sans text-xs font-bold tracking-widest uppercase text-foreground">
+        <div className="flex-1 text-center min-w-0">
+          <div className="font-sans text-xs font-bold tracking-widest uppercase text-foreground truncate">
             {workout?.name}
           </div>
           <div className="font-mono text-xs text-muted-foreground">{displayDate}</div>
         </div>
-        <div className="font-mono text-xs text-muted-foreground min-w-[44px] text-right">
-          {currentStep + 1} / {exercises.length}
+        <div
+          className="shrink-0 text-right leading-tight"
+          data-current-step={currentStep}
+          data-exercise-name={currentExercise?.name ?? ''}
+          aria-live="polite"
+        >
+          <div className="font-mono text-[11px] text-foreground">
+            Exercise {currentStep + 1} of {exercises.length}
+          </div>
+          <div className="font-mono text-[10px] text-muted-foreground">
+            {completedCount} completed
+            {skippedCount > 0 ? ` · ${skippedCount} skipped` : ''}
+          </div>
         </div>
       </div>
 
-      {/* Progress strip */}
+      {/* Jump dots share currentStep with the header. Arrows below move one exercise. */}
       <div className="px-4 pb-3">
-        <div
-          ref={progressStripRef}
-          className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1"
-          style={{ scrollbarWidth: 'none' }}
-        >
-          {exercises.map((ex, i) => {
-            const log = dayLog.exercises[ex.name]
-            const done = log?.completed
-            const skipped = log?.skipped
-            const isCurrent = i === currentStep
-
-            return (
-              <button
-                key={ex.name}
-                onClick={() => goToStep(i)}
-                data-haptic="selection"
-                title={ex.name}
-                className={cn(
-                  'shrink-0 rounded-full transition-all focus-visible:outline-none',
-                  'focus-visible:ring-2 focus-visible:ring-neon-orange/50',
-                  isCurrent
-                    ? 'w-6 h-3 bg-neon-orange animate-pulse rounded-full'
-                    : done
-                      ? 'w-3 h-3 bg-neon-orange/80'
-                      : skipped
-                        ? 'w-3 h-3 bg-muted-foreground/40 ring-1 ring-muted-foreground/60'
-                        : 'w-3 h-3 bg-border hover:bg-muted-foreground/50',
-                )}
-              />
-            )
-          })}
-        </div>
-
-        {/* Progress text */}
-        <div className="flex items-center gap-3 mt-1">
-          <div className="h-px flex-1 bg-border/50" />
-          <span className="font-mono text-xs text-muted-foreground shrink-0">
-            {completedCount}/{exercises.length} done
-            {skippedCount > 0 && ` · ${skippedCount} skipped`}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+            Jump
           </span>
-          <div className="h-px flex-1 bg-border/50" />
+          <div
+            ref={progressStripRef}
+            role="group"
+            aria-label="Jump to any exercise"
+            className="flex flex-1 items-center gap-2 overflow-x-auto scrollbar-none py-1"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {exercises.map((ex, i) => {
+              const log = dayLog.exercises[ex.name]
+              const done = log?.completed
+              const skipped = log?.skipped
+              const isCurrent = i === currentStep
+
+              return (
+                <button
+                  key={ex.name}
+                  type="button"
+                  onClick={() => goToStep(i)}
+                  data-haptic="selection"
+                  data-step={i}
+                  data-current={isCurrent ? 'true' : 'false'}
+                  title={ex.name}
+                  aria-label={`Jump to exercise ${i + 1} of ${exercises.length}: ${ex.name}`}
+                  aria-current={isCurrent ? 'true' : undefined}
+                  className={cn(
+                    'shrink-0 rounded-full transition-all focus-visible:outline-none',
+                    'focus-visible:ring-2 focus-visible:ring-neon-orange/50',
+                    isCurrent
+                      ? 'w-6 h-3 bg-neon-orange animate-pulse rounded-full'
+                      : done
+                        ? 'w-3 h-3 bg-neon-orange/80'
+                        : skipped
+                          ? 'w-3 h-3 bg-muted-foreground/40 ring-1 ring-muted-foreground/60'
+                          : 'w-3 h-3 bg-border hover:bg-muted-foreground/50',
+                  )}
+                />
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -393,7 +436,7 @@ export function WorkoutFlow({
         <Carousel
           key={`${date}-${workoutKey}`}
           setApi={setCarouselApi}
-          opts={{ ...carouselOpts, startIndex: currentStep }}
+          opts={carouselOpts}
           className="h-full w-full [&_[data-slot=carousel-content]]:h-full [&_[data-slot=carousel-content]>div]:h-full"
         >
           <CarouselContent className="-ml-0 h-full">
@@ -402,7 +445,11 @@ export function WorkoutFlow({
               const isActive = i === currentStep
 
               return (
-                <CarouselItem key={exercise.name} className="pl-0 basis-full h-full min-h-0">
+                <CarouselItem
+                  key={exercise.name}
+                  data-step={i}
+                  className="pl-0 basis-full h-full min-h-0"
+                >
                   <div
                     ref={isActive ? scrollRef : undefined}
                     className="h-full min-h-0 overflow-y-auto overscroll-contain touch-pan-y pb-40"
@@ -415,6 +462,7 @@ export function WorkoutFlow({
                         lastRecord={getLastExerciseRecord(store, exercise.name, date)}
                         isActive={isActive}
                         restTimer={renderRestTimer(exercise.name, isActive)}
+                        programReminders={program.globalNotes}
                         onAutoStartRestTimer={() => handleAutoStartRestTimer(exercise.name)}
                         onUpdateSets={(sets) => updateExerciseLog(exercise.name, { sets })}
                         onMarkDone={() => handleMarkDoneAt(i)}
@@ -436,25 +484,6 @@ export function WorkoutFlow({
                         </div>
                       )}
 
-                      <div className="mt-8 mb-4 bg-card/20 border border-border/40 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Settings2 className="w-3 h-3 text-neon-orange/60" />
-                          <span className="font-mono text-xs text-neon-orange/70 uppercase tracking-wider">
-                            Reminders
-                          </span>
-                        </div>
-                        <ul className="space-y-1.5">
-                          {program.globalNotes.slice(0, 4).map((note, i) => (
-                            <li
-                              key={i}
-                              className="font-mono text-xs text-muted-foreground/70 flex gap-2"
-                            >
-                              <span className="text-neon-orange/30 shrink-0">›</span>
-                              <span>{note}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
                     </div>
                   </div>
                 </CarouselItem>
@@ -483,9 +512,12 @@ export function WorkoutFlow({
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 border-t border-border backdrop-blur-sm">
         <div className="max-w-2xl mx-auto p-4 flex items-center gap-3">
           <button
+            type="button"
             onClick={goPrev}
             data-haptic="selection"
             disabled={currentStep === 0}
+            aria-label="Previous exercise"
+            title="Previous exercise"
             className={cn(
               'h-12 w-12 shrink-0 rounded-lg border flex items-center justify-center transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-orange/50',
@@ -549,9 +581,12 @@ export function WorkoutFlow({
           )}
 
           <button
+            type="button"
             onClick={goNext}
             data-haptic="selection"
             disabled={currentStep === exercises.length - 1}
+            aria-label="Next exercise"
+            title="Next exercise"
             className={cn(
               'h-12 w-12 shrink-0 rounded-lg border flex items-center justify-center transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-orange/50',
