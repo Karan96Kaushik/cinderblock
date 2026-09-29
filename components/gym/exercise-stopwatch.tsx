@@ -116,13 +116,13 @@ export function ExerciseStopwatch({
         className={cn(
           'w-full min-h-[44px] rounded-lg border font-mono text-xs tracking-widest uppercase',
           'flex items-center justify-center gap-2 transition-colors',
-          open || running
-            ? 'border-neon-orange/50 bg-neon-orange/10 text-neon-orange'
-            : 'border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40',
+          open
+            ? 'border-neon-orange bg-neon-orange text-primary-foreground hover:opacity-90'
+            : 'border-border bg-transparent text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40',
         )}
       >
         <Timer className="w-4 h-4" />
-        {running ? `${formatTime(remaining)}` : open ? 'Hide timer' : 'Timer'}
+        {open ? 'Hide timer' : running ? `Timer · ${formatTime(remaining)}` : 'Timer'}
       </button>
 
       {open && (
