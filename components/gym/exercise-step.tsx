@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
-import { ChevronDown, ChevronUp, Check, Keyboard, Timer, SkipForward } from 'lucide-react'
+import { ChevronDown, ChevronUp, Check, Timer, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ExerciseLog, LastExerciseRecord, ProgramExercise, SetLog } from './gym-tracker'
 import { createEmptySet, formatSetSummary, hasSetLogData, isSetComplete } from './gym-tracker'
@@ -29,57 +29,6 @@ function setsForExercise(log: ExerciseLog | undefined, exercise: ProgramExercise
     ...logged,
     ...Array.from({ length: exercise.sets - logged.length }, () => createEmptySet(exercise)),
   ]
-}
-
-function LogField({
-  label,
-  value,
-  onChange,
-  onFocus,
-  disabled,
-  inputMode,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  onFocus: () => void
-  disabled: boolean
-  inputMode: 'numeric' | 'decimal'
-}) {
-  const showHint = !disabled && value.trim() === ''
-
-  return (
-    <div className="flex-1 min-w-0">
-      <label className="font-mono text-xs text-muted-foreground block mb-1">{label}</label>
-      <div className="relative">
-        <input
-          type="text"
-          inputMode={inputMode}
-          enterKeyHint="done"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={onFocus}
-          placeholder={disabled ? '—' : 'Tap to enter'}
-          disabled={disabled}
-          aria-label={label}
-          className={cn(
-            'w-full h-11 rounded-md bg-background border-2 px-3',
-            showHint ? 'pr-9' : 'pr-3',
-            'font-mono text-base text-foreground placeholder:text-muted-foreground/75',
-            'border-neon-orange/50 focus:outline-none focus:border-neon-orange focus:ring-2 focus:ring-neon-orange/25',
-            'transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:border-border disabled:bg-input/40',
-          )}
-        />
-        {showHint && (
-          <Keyboard
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-orange/80 pointer-events-none"
-            aria-hidden
-          />
-        )}
-      </div>
-    </div>
-  )
 }
 
 function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
@@ -255,34 +204,70 @@ export function ExerciseStep({
               SET {i + 1}
               {setDone && <Check className="w-3 h-3 text-neon-orange" aria-hidden />}
             </span>
-            <div className="flex-1 flex items-center gap-2 min-w-0">
+            <div className="flex-1 flex items-center gap-2">
               {isTimedHold ? (
-                <LogField
-                  label="Seconds held"
-                  value={set.seconds ?? ''}
-                  onChange={(value) => updateSet(i, 'seconds', value)}
-                  onFocus={() => handleSetFocus(i)}
-                  disabled={isAddressed}
-                  inputMode="numeric"
-                />
+                <div className="flex-1">
+                  <label className="font-mono text-xs text-muted-foreground block mb-1">
+                    Seconds held
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={set.seconds ?? ''}
+                    onChange={(e) => updateSet(i, 'seconds', e.target.value)}
+                    onFocus={() => handleSetFocus(i)}
+                    placeholder="—"
+                    disabled={isAddressed}
+                    className={cn(
+                      'w-full h-11 bg-input/60 border border-border rounded-md px-3',
+                      'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
+                      'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
+                      'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                    )}
+                  />
+                </div>
               ) : (
                 <>
-                  <LogField
-                    label="Weight (kg)"
-                    value={set.weight}
-                    onChange={(value) => updateSet(i, 'weight', value)}
-                    onFocus={() => handleSetFocus(i)}
-                    disabled={isAddressed}
-                    inputMode="decimal"
-                  />
-                  <LogField
-                    label="Reps"
-                    value={set.reps}
-                    onChange={(value) => updateSet(i, 'reps', value)}
-                    onFocus={() => handleSetFocus(i)}
-                    disabled={isAddressed}
-                    inputMode="numeric"
-                  />
+                  <div className="flex-1">
+                    <label className="font-mono text-xs text-muted-foreground block mb-1">
+                      Weight (kg)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={set.weight}
+                      onChange={(e) => updateSet(i, 'weight', e.target.value)}
+                      onFocus={() => handleSetFocus(i)}
+                      placeholder="—"
+                      disabled={isAddressed}
+                      className={cn(
+                        'w-full h-11 bg-input/60 border border-border rounded-md px-3',
+                        'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
+                        'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
+                        'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                      )}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="font-mono text-xs text-muted-foreground block mb-1">
+                      Reps
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={set.reps}
+                      onChange={(e) => updateSet(i, 'reps', e.target.value)}
+                      onFocus={() => handleSetFocus(i)}
+                      placeholder="—"
+                      disabled={isAddressed}
+                      className={cn(
+                        'w-full h-11 bg-input/60 border border-border rounded-md px-3',
+                        'font-mono text-base text-foreground placeholder:text-muted-foreground/40',
+                        'focus:outline-none focus:border-neon-orange/60 focus:ring-1 focus:ring-neon-orange/30',
+                        'transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                      )}
+                    />
+                  </div>
                 </>
               )}
             </div>
