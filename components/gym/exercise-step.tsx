@@ -31,6 +31,23 @@ function setsForExercise(log: ExerciseLog | undefined, exercise: ProgramExercise
   ]
 }
 
+function computeVisibleSetCount(
+  sets: SetLog[],
+  totalSets: number,
+  isAddressed: boolean,
+): number {
+  if (isAddressed) return totalSets
+
+  let lastWithData = -1
+  for (let i = 0; i < Math.min(sets.length, totalSets); i++) {
+    if (hasSetLogData(sets[i])) lastWithData = i
+  }
+
+  if (lastWithData === -1) return 1
+  if (lastWithData >= totalSets - 1) return totalSets
+  return Math.min(lastWithData + 2, totalSets)
+}
+
 function fillSetFromPrevious(sets: SetLog[], index: number): SetLog[] {
   if (index <= 0 || hasSetLogData(sets[index])) return sets
 
@@ -66,8 +83,17 @@ export function ExerciseStep({
   const isAddressed = isCompleted || isSkipped
   const isTimedHold = isTimedHoldExercise(exercise)
   const targetLabel = isTimedHold ? exercise.duration : exercise.reps
-  const displayedSets = sets.slice(0, exercise.sets)
-  const loggedSetCount = displayedSets.filter((set) => isSetComplete(set, isTimedHold)).length
+  const loggedSetCount = sets
+    .slice(0, exercise.sets)
+    .filter((set) => isSetComplete(set, isTimedHold)).length
+
+  const [visibleSetCount, setVisibleSetCount] = useState(() =>
+    computeVisibleSetCount(sets, exercise.sets, isAddressed),
+  )
+
+  useEffect(() => {
+    setVisibleSetCount(computeVisibleSetCount(sets, exercise.sets, isAddressed))
+  }, [exercise.name, exercise.sets, isAddressed])
 
   // Sets after the first are prefilled from the previous set on focus, so they are
   // already "complete" before the user types. Tracking which sets have fired keeps
@@ -81,6 +107,14 @@ export function ExerciseStep({
   const updateSet = (index: number, field: keyof SetLog, value: string) => {
     const next = sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
     const nowComplete = isSetComplete(next[index], isTimedHold)
+
+    if (
+      hasSetLogData(next[index]) &&
+      index === visibleSetCount - 1 &&
+      visibleSetCount < exercise.sets
+    ) {
+      setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
+    }
 
     if (
       settings.autoStartRestTimer &&
@@ -100,7 +134,13 @@ export function ExerciseStep({
     if (next !== sets) {
       onUpdateSets(next)
     }
+
+    if (index > 0 && index === visibleSetCount - 1 && visibleSetCount < exercise.sets) {
+      setVisibleSetCount((count) => Math.min(count + 1, exercise.sets))
+    }
   }
+
+  const displayedSets = sets.slice(0, visibleSetCount)
 
   const lastSessionSummary = lastRecord ? formatSetSummary(lastRecord.log) : null
 
@@ -181,12 +221,16 @@ export function ExerciseStep({
         )}
       </div>
 
-      {/* Every programmed set is listed so later sets are never hidden. */}
       <div className="space-y-2 mb-5">
-        <div className="mb-1">
+        <div className="flex items-center justify-between mb-1">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             Log sets
           </span>
+          {!isAddressed && visibleSetCount < exercise.sets && (
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {visibleSetCount} of {exercise.sets} shown
+            </span>
+          )}
         </div>
         {displayedSets.map((set, i) => {
           const setDone = isSetComplete(set, isTimedHold)
