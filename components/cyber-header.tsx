@@ -151,8 +151,10 @@ export function CyberHeader({
             id={drawerId}
             aria-hidden={!open}
             className={cn(
-              'overflow-hidden border-t border-neon-orange/20 transition-[max-height,opacity] duration-500 ease-out',
-              open ? 'max-h-[min(85vh,720px)] opacity-100' : 'max-h-0 opacity-0 pointer-events-none',
+              'border-t border-neon-orange/20 transition-[max-height,opacity] duration-500 ease-out',
+              open
+                ? 'max-h-[calc(100dvh-4.5rem)] opacity-100 overflow-y-auto overscroll-contain'
+                : 'max-h-0 opacity-0 overflow-hidden pointer-events-none',
             )}
           >
             <div className="relative cyber-grid">
@@ -170,7 +172,7 @@ export function CyberHeader({
                 <div className="h-px w-full bg-neon-orange/40" />
               </div>
 
-              <div className="relative max-w-7xl mx-auto px-4 py-5 pb-6">
+              <div className="relative max-w-7xl mx-auto px-4 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
                 <div className="flex items-center gap-2 mb-5">
                   <Sparkles className="w-4 h-4 text-neon-yellow" />
                   <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-neon-orange/80">

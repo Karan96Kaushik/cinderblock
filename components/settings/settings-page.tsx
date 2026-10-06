@@ -455,6 +455,9 @@ function AppearanceSection({
   onTheme: (theme: ThemePresetKey) => void
   onReset: () => void
 }) {
+  const activeFont = FONT_PRESETS[fontPreset] ?? FONT_PRESETS.cinderblock
+  const activeSize = FONT_SIZES[fontSize] ?? FONT_SIZES.md
+
   return (
     <SectionCard title="Appearance">
       <div className="space-y-5">
@@ -531,11 +534,11 @@ function AppearanceSection({
         <div
           className="rounded-lg border border-border/60 bg-background/50 p-3"
           style={{
-            fontFamily: FONT_PRESETS[fontPreset].mono,
-            fontSize: `${FONT_SIZES[fontSize].scale}rem`,
+            fontFamily: activeFont.mono,
+            fontSize: `${activeSize.scale}rem`,
           }}
         >
-          <p className="font-sans font-bold text-text-primary" style={{ fontFamily: FONT_PRESETS[fontPreset].sans }}>
+          <p className="font-sans font-bold text-text-primary" style={{ fontFamily: activeFont.sans }}>
             Preview heading
           </p>
           <p className="font-mono text-text-secondary text-sm mt-1">
