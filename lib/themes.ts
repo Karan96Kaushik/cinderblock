@@ -57,8 +57,8 @@ const LEGACY_THEME_MAP: Record<string, ThemePresetKey> = {
 
 export function normalizeThemeKey(value: unknown): ThemePresetKey {
   if (typeof value !== 'string') return 'orange'
-  if (Object.hasOwn(THEME_PRESETS, value)) return value as ThemePresetKey
-  if (Object.hasOwn(LEGACY_THEME_MAP, value)) return LEGACY_THEME_MAP[value]
+  if (Object.prototype.hasOwnProperty.call(THEME_PRESETS, value)) return value as ThemePresetKey
+  if (Object.prototype.hasOwnProperty.call(LEGACY_THEME_MAP, value)) return LEGACY_THEME_MAP[value]
   return 'orange'
 }
 
@@ -356,5 +356,5 @@ export function applyTheme(themeKey: ThemePresetKey) {
 }
 
 export function isValidThemeKey(value: unknown): value is ThemePresetKey {
-  return typeof value === 'string' && Object.hasOwn(THEME_PRESETS, value)
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(THEME_PRESETS, value)
 }

@@ -105,10 +105,13 @@ export function writeSettings(settings: AppSettings, opts?: { silent?: boolean }
 
 export function applySettings(settings: AppSettings) {
   const root = document.documentElement
-  const fontPresetKey: FontPresetKey = Object.hasOwn(FONT_PRESETS, settings.fontPreset)
+  const fontPresetKey: FontPresetKey = Object.prototype.hasOwnProperty.call(
+    FONT_PRESETS,
+    settings.fontPreset,
+  )
     ? settings.fontPreset
     : 'cinderblock'
-  const fontSizeKey: FontSizeKey = Object.hasOwn(FONT_SIZES, settings.fontSize)
+  const fontSizeKey: FontSizeKey = Object.prototype.hasOwnProperty.call(FONT_SIZES, settings.fontSize)
     ? settings.fontSize
     : 'md'
   const preset = FONT_PRESETS[fontPresetKey]
