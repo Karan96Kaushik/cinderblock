@@ -433,3 +433,36 @@
     color: var(--text-secondary);
   }
 }
+
+/*
+  iOS Safari zooms the page when a focused text field is under 16px, and a
+  standalone PWA does not zoom back out on blur. Floor text fields at 16px
+  on touch Safari while keeping the user's larger type scale.
+  Unlayered so this wins over Tailwind text-sm / text-xs utilities.
+*/
+@supports (-webkit-touch-callout: none) {
+  @media (pointer: coarse) {
+    :is(input, textarea, select):not(
+      [type='button'],
+      [type='checkbox'],
+      [type='color'],
+      [type='file'],
+      [type='hidden'],
+      [type='image'],
+      [type='radio'],
+      [type='range'],
+      [type='reset'],
+      [type='submit']
+    ) {
+      font-size: max(16px, 1rem);
+    }
+
+    :is(input, textarea, select).text-lg {
+      font-size: max(16px, 1.125rem);
+    }
+
+    :is(input, textarea, select).text-xl {
+      font-size: max(16px, 1.25rem);
+    }
+  }
+}

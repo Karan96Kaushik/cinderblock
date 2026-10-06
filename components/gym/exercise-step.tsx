@@ -75,7 +75,7 @@ export function ExerciseStep({
 }: ExerciseStepProps) {
   const { settings } = useSettings()
   const [notesOpen, setNotesOpen] = useState(false)
-  const [remindersOpen, setRemindersOpen] = useState(true)
+  const [remindersOpen, setRemindersOpen] = useState(false)
 
   const sets = setsForExercise(log, exercise)
   const isCompleted = log?.completed ?? false
