@@ -105,14 +105,20 @@ export function writeSettings(settings: AppSettings, opts?: { silent?: boolean }
 
 export function applySettings(settings: AppSettings) {
   const root = document.documentElement
-  const preset = FONT_PRESETS[settings.fontPreset]
-  const scale = FONT_SIZES[settings.fontSize].scale
+  const fontPresetKey: FontPresetKey = Object.hasOwn(FONT_PRESETS, settings.fontPreset)
+    ? settings.fontPreset
+    : 'cinderblock'
+  const fontSizeKey: FontSizeKey = Object.hasOwn(FONT_SIZES, settings.fontSize)
+    ? settings.fontSize
+    : 'md'
+  const preset = FONT_PRESETS[fontPresetKey]
+  const scale = FONT_SIZES[fontSizeKey].scale
 
   applyTheme(settings.theme)
 
   root.style.setProperty('--font-orbitron', preset.sans)
   root.style.setProperty('--font-share-tech', preset.mono)
   root.style.setProperty('--app-font-scale', String(scale))
-  root.dataset.fontPreset = settings.fontPreset
-  root.dataset.fontSize = settings.fontSize
+  root.dataset.fontPreset = fontPresetKey
+  root.dataset.fontSize = fontSizeKey
 }

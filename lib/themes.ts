@@ -57,8 +57,8 @@ const LEGACY_THEME_MAP: Record<string, ThemePresetKey> = {
 
 export function normalizeThemeKey(value: unknown): ThemePresetKey {
   if (typeof value !== 'string') return 'orange'
-  if (value in THEME_PRESETS) return value as ThemePresetKey
-  if (value in LEGACY_THEME_MAP) return LEGACY_THEME_MAP[value]
+  if (Object.hasOwn(THEME_PRESETS, value)) return value as ThemePresetKey
+  if (Object.hasOwn(LEGACY_THEME_MAP, value)) return LEGACY_THEME_MAP[value]
   return 'orange'
 }
 
@@ -328,7 +328,9 @@ function syncTextSemanticVars(root: HTMLElement, tokens: ThemeTokens) {
 }
 
 export function applyTheme(themeKey: ThemePresetKey) {
-  const preset = THEME_PRESETS[themeKey]
+  const resolvedKey = normalizeThemeKey(themeKey)
+  const preset = THEME_PRESETS[resolvedKey] ?? THEME_PRESETS.orange
+  const appliedKey: ThemePresetKey = THEME_PRESETS[resolvedKey] ? resolvedKey : 'orange'
   const root = document.documentElement
   const { tokens } = preset
 
@@ -344,7 +346,7 @@ export function applyTheme(themeKey: ThemePresetKey) {
   root.style.setProperty('--cyber-scanline-opacity', String(tokens.cyberScanlineOpacity))
 
   root.style.colorScheme = preset.mode
-  root.dataset.theme = themeKey
+  root.dataset.theme = appliedKey
   root.dataset.themeMode = preset.mode
 
   const meta = document.querySelector('meta[name="theme-color"]')
@@ -354,5 +356,5 @@ export function applyTheme(themeKey: ThemePresetKey) {
 }
 
 export function isValidThemeKey(value: unknown): value is ThemePresetKey {
-  return typeof value === 'string' && value in THEME_PRESETS
+  return typeof value === 'string' && Object.hasOwn(THEME_PRESETS, value)
 }
