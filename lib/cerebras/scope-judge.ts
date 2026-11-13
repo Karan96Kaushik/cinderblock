@@ -1,4 +1,4 @@
-import { createCerebrasClient } from './client'
+import { createVertexClient } from '../vertex/client'
 import { requestStructuredJson } from './structured'
 import type { AiChatMode } from '../ai-chat/parse-sentinels'
 import { formatPlanDiffForPrompt, type PlanDiffSummary } from '../ai-chat/plan-diff'
@@ -129,8 +129,8 @@ export function normalizeScopeJudgeResult(raw: unknown): ScopeJudgeResult {
 export async function requestScopeJudgement(
   input: ScopeJudgePromptInput,
 ): Promise<ScopeJudgeResult> {
-  const client = createCerebrasClient({
-    model: process.env.CEREBRAS_MODEL?.trim() || undefined,
+  const client = createVertexClient({
+    model: process.env.GOOGLE_VERTEX_MODEL?.trim() || undefined,
   })
 
   const result = await requestStructuredJson<unknown>({

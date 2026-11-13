@@ -1,5 +1,5 @@
 import type { Context, LambdaFunctionURLEvent } from 'aws-lambda'
-import { createCerebrasClient } from '../../../lib/cerebras'
+import { createVertexClient, isVertexConfigured, VERTEX_MISCONFIGURED_ERROR } from '../../../lib/vertex/client'
 import {
   AI_CHAT_MAX_MESSAGE_CHARS,
   AI_CHAT_MAX_PLAN_CONTEXT_CHARS,
@@ -14,9 +14,9 @@ import { STREAM_FLUSH_PAD } from '../../../lib/ai-chat/stream-flush'
 import { parseJsonBody } from '../_shared/http'
 import { createLogger } from '../_shared/logger'
 import { checkRateLimit } from '../_shared/rateLimit'
-import { readResolvedSecret } from '../_shared/secrets'
 import { verifySupabaseAuth } from '../_shared/verifySupabaseAuth'
-import { buildChatSystemPrompt, buildChatUserPayload } from './prompts'
+import { streamAgentReply } from './agent'
+import { buildChatUserPayload } from './prompts'
 
 const log = createLogger('ai-chat')
 
@@ -136,11 +136,10 @@ async function streamHandler(
       return
     }
 
-    if (!readResolvedSecret('CEREBRAS_API_KEY')) {
+    if (!isVertexConfigured()) {
       writeJsonError(responseStream, 500, {
         ok: false,
-        error:
-          'Server misconfigured: Amplify secret CEREBRAS_API_KEY is missing. Run `npx ampx sandbox secret set CEREBRAS_API_KEY` (shell export is not enough).',
+        error: VERTEX_MISCONFIGURED_ERROR,
       })
       return
     }
@@ -189,11 +188,10 @@ async function streamHandler(
         ? body.currentPlanContext.slice(0, AI_CHAT_MAX_PLAN_CONTEXT_CHARS)
         : null
 
-    const client = createCerebrasClient({
-      model: process.env.CEREBRAS_MODEL?.trim() || undefined,
+    const client = createVertexClient({
+      model: process.env.GOOGLE_VERTEX_MODEL?.trim() || undefined,
     })
 
-    const system = buildChatSystemPrompt(mode)
     const userPayload = buildChatUserPayload({
       runningSummary,
       currentPlanContext,
@@ -219,33 +217,30 @@ async function streamHandler(
         const waited = lastFlushAt === 0 || now - lastFlushAt >= 80
         const bulky = pending.length >= 80
         // First tokens go out immediately; later batches every ~80ms or 80
-        // chars so we don't attach 100 KB of padding to every Cerebras event.
+        // chars so we don't attach 100 KB of padding to every Vertex event.
         if (!force && !waited && !bulky) return
         await writeFlushed(stream, pending)
         pending = ''
         lastFlushAt = now
       }
 
-      for await (const delta of client.streamChatCompletion({
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userPayload },
-        ],
-        temperature: 0.6,
-        maxTokens: 4096,
-        reasoningFormat: 'parsed',
+      for await (const delta of streamAgentReply({
+        client,
+        mode,
+        userPayload,
+        newMessage,
       })) {
         pending += delta
         await flushIfDue(false)
       }
       await flushIfDue(true)
     } catch (err) {
-      log.errorWithCause('cerebras.stream_failed', err, { ...base, userId: user.id })
+      log.errorWithCause('vertex.stream_failed', err, { ...base, userId: user.id })
       // Headers were already sent as 200 text/plain, so signal the failure with a
       // sentinel the client recognizes and converts into a thrown error.
       await writeFlushed(
         stream,
-        `\n\n${STREAM_ERROR_MARKER} ${err instanceof Error ? err.message : 'Cerebras stream failed'}`,
+        `\n\n${STREAM_ERROR_MARKER} ${err instanceof Error ? err.message : 'Vertex stream failed'}`,
       )
     }
 

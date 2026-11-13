@@ -1,5 +1,5 @@
-import { CerebrasClient, createCerebrasClient } from './client'
-import type { CerebrasChatResponse, CerebrasClientOptions, CerebrasMessage, CerebrasUsage } from './types'
+import { createVertexClient, type VertexClient, type VertexClientOptions } from '../vertex/client'
+import type { CerebrasChatResponse, CerebrasMessage, CerebrasUsage } from './types'
 
 export type StructuredJsonRequest = {
   /** The user-facing instruction / task. */
@@ -15,8 +15,8 @@ export type StructuredJsonRequest = {
   /** Defaults to true (constrained decoding). */
   strict?: boolean
   /** Reuse an existing client instead of creating one from env/options. */
-  client?: CerebrasClient
-  clientOptions?: CerebrasClientOptions
+  client?: VertexClient
+  clientOptions?: VertexClientOptions
 }
 
 export type StructuredJsonResult<T> = {
@@ -34,14 +34,14 @@ export class StructuredOutputParseError extends Error {
 
   constructor(raw: string, cause: unknown) {
     const causeMessage = cause instanceof Error ? cause.message : String(cause)
-    super(`Failed to parse Cerebras structured output as JSON: ${causeMessage}`)
+    super(`Failed to parse Vertex structured output as JSON: ${causeMessage}`)
     this.name = 'StructuredOutputParseError'
     this.raw = raw
   }
 }
 
 /**
- * Sends a prompt (plus optional context) to Cerebras and returns the
+ * Sends a prompt (plus optional context) to Google Vertex and returns the
  * structured JSON response, parsed and typed. Uses `response_format:
  * json_schema` with strict constrained decoding by default so the shape is
  * guaranteed to match `request.schema`.
@@ -49,7 +49,7 @@ export class StructuredOutputParseError extends Error {
 export async function requestStructuredJson<T = unknown>(
   request: StructuredJsonRequest,
 ): Promise<StructuredJsonResult<T>> {
-  const client = request.client ?? createCerebrasClient(request.clientOptions)
+  const client = request.client ?? createVertexClient(request.clientOptions)
 
   const messages: CerebrasMessage[] = []
   if (request.context) {

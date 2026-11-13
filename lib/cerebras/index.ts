@@ -1,4 +1,3 @@
-export { CerebrasApiError, CerebrasClient, createCerebrasClient } from './client'
 export type {
   CerebrasChatRequest,
   CerebrasChatResponse,

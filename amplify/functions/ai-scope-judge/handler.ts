@@ -12,8 +12,8 @@ import { diffPlaintextPlans } from '../../../lib/ai-chat/plan-diff'
 import { json, jsonHeaders, parseJsonBody } from '../_shared/http'
 import { createLogger } from '../_shared/logger'
 import { checkRateLimit } from '../_shared/rateLimit'
-import { readResolvedSecret } from '../_shared/secrets'
 import { verifySupabaseAuth } from '../_shared/verifySupabaseAuth'
+import { isVertexConfigured, VERTEX_MISCONFIGURED_ERROR } from '../../../lib/vertex/client'
 
 const log = createLogger('ai-scope-judge')
 
@@ -85,11 +85,10 @@ export const handler = async (
       })
     }
 
-    if (!readResolvedSecret('CEREBRAS_API_KEY')) {
+    if (!isVertexConfigured()) {
       return json(500, {
         ok: false,
-        error:
-          'Server misconfigured: Amplify secret CEREBRAS_API_KEY is missing. Run `npx ampx sandbox secret set CEREBRAS_API_KEY`.',
+        error: VERTEX_MISCONFIGURED_ERROR,
       })
     }
 

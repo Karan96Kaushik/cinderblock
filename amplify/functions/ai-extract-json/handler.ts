@@ -1,11 +1,11 @@
 import type { APIGatewayProxyResultV2, Context, LambdaFunctionURLEvent } from 'aws-lambda'
 import {
   cerebrasProgramGenerationSchema,
-  createCerebrasClient,
   requestStructuredJson,
   toProgramDocumentPatch,
   type CerebrasProgramGeneration,
 } from '../../../lib/cerebras'
+import { createVertexClient, isVertexConfigured, VERTEX_MISCONFIGURED_ERROR } from '../../../lib/vertex/client'
 import { ProgramJsonManager, type ProgramIssue } from '../../../lib/program-json'
 import {
   AI_CHAT_MAX_PLAN_CONTEXT_CHARS,
@@ -15,7 +15,6 @@ import {
 import { json, jsonHeaders, parseJsonBody } from '../_shared/http'
 import { createLogger } from '../_shared/logger'
 import { checkRateLimit } from '../_shared/rateLimit'
-import { readResolvedSecret } from '../_shared/secrets'
 import { verifySupabaseAuth } from '../_shared/verifySupabaseAuth'
 
 const log = createLogger('ai-extract-json')
@@ -51,8 +50,8 @@ async function extractOnce(args: {
   runningSummary: string
   repairErrors?: string
 }): Promise<{ generation: CerebrasProgramGeneration; raw: string }> {
-  const client = createCerebrasClient({
-    model: process.env.CEREBRAS_MODEL?.trim() || undefined,
+  const client = createVertexClient({
+    model: process.env.GOOGLE_VERTEX_MODEL?.trim() || undefined,
   })
 
   const repairBlock = args.repairErrors
@@ -156,11 +155,10 @@ export const handler = async (
       })
     }
 
-    if (!readResolvedSecret('CEREBRAS_API_KEY')) {
+    if (!isVertexConfigured()) {
       return json(500, {
         ok: false,
-        error:
-          'Server misconfigured: Amplify secret CEREBRAS_API_KEY is missing. Run `npx ampx sandbox secret set CEREBRAS_API_KEY` (shell export is not enough).',
+        error: VERTEX_MISCONFIGURED_ERROR,
       })
     }
 
@@ -170,11 +168,11 @@ export const handler = async (
     try {
       first = await extractOnce({ plaintextDraft, runningSummary })
     } catch (err) {
-      log.errorWithCause('cerebras.first_failed', err, { ...base, userId: user.id })
+      log.errorWithCause('vertex.first_failed', err, { ...base, userId: user.id })
       return json(502, {
         ok: false,
-        reason: 'cerebras_error',
-        error: err instanceof Error ? err.message : 'Cerebras request failed',
+        reason: 'vertex_error',
+        error: err instanceof Error ? err.message : 'Vertex request failed',
       })
     }
 
@@ -197,11 +195,11 @@ export const handler = async (
         validated = validateGeneration(second.generation)
         attempts.push({ raw: second.raw, issues: validated.issues })
       } catch (err) {
-        log.errorWithCause('cerebras.retry_failed', err, { ...base, userId: user.id })
+        log.errorWithCause('vertex.retry_failed', err, { ...base, userId: user.id })
         return json(502, {
           ok: false,
-          reason: 'cerebras_error',
-          error: err instanceof Error ? err.message : 'Cerebras retry failed',
+          reason: 'vertex_error',
+          error: err instanceof Error ? err.message : 'Vertex retry failed',
           attempts,
         })
       }

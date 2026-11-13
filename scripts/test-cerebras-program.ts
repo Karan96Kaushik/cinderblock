@@ -1,18 +1,18 @@
 /**
- * Integration test for the Cerebras module: sends a prompt + context to
- * Cerebras, requests a structured JSON program, then validates and
- * diagnoses the result in memory via `ProgramJsonManager`.
+ * Integration test for Google Vertex: sends a prompt + context, requests a
+ * structured JSON program, then validates and diagnoses the result in memory
+ * via `ProgramJsonManager`.
  *
  * Logs every stage in full (request, raw API response, parsed data,
  * transformed document, validation, diagnostics) to stdout and to a
  * timestamped file under `logs/`.
  *
  * Usage:
- *   export CEREBRAS_API_KEY=your-key-here
- *   npm run test:cerebras
+ *   export GOOGLE_VERTEX_SERVICE_ACCOUNT='{"type":"service_account",...}'
+ *   npm run test:vertex
  *
- * Optional env vars:
- *   CEREBRAS_MODEL   overrides the default model (gpt-oss-120b)
+ * Or set GOOGLE_VERTEX_ACCESS_TOKEN and GOOGLE_VERTEX_PROJECT_ID.
+ * Optional: GOOGLE_VERTEX_MODEL (default gemini-3.6-flash).
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -58,14 +58,14 @@ function logSection(buffer: string[], title: string, value: unknown): void {
 function writeLogFile(buffer: string[]): string {
   mkdirSync(LOG_DIR, { recursive: true })
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const filePath = join(LOG_DIR, `cerebras-program-${timestamp}.log`)
+  const filePath = join(LOG_DIR, `vertex-program-${timestamp}.log`)
   writeFileSync(filePath, buffer.join('\n') + '\n', 'utf8')
   return filePath
 }
 
 async function main(): Promise<void> {
   const buffer: string[] = []
-  const model = process.env.CEREBRAS_MODEL ?? '(default: gpt-oss-120b)'
+  const model = process.env.GOOGLE_VERTEX_MODEL ?? '(default: gemini-3.6-flash)'
 
   logSection(buffer, 'Request', {
     model,
@@ -75,14 +75,14 @@ async function main(): Promise<void> {
     schema: cerebrasProgramGenerationSchema,
   })
 
-  console.log('\nCalling Cerebras...')
+  console.log('\nCalling Google Vertex...')
 
   const result = await requestStructuredJson<CerebrasProgramGeneration>({
     prompt: PROMPT,
     context: CONTEXT,
     schemaName: 'program_generation',
     schema: cerebrasProgramGenerationSchema,
-    model: process.env.CEREBRAS_MODEL,
+    model: process.env.GOOGLE_VERTEX_MODEL,
   })
 
   logSection(buffer, 'Full raw API response', result.response.raw)
@@ -121,7 +121,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error('\nCerebras program test failed:')
+  console.error('\nVertex program test failed:')
   console.error(error instanceof Error ? (error.stack ?? error.message) : error)
   process.exitCode = 1
 })

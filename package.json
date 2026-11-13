@@ -12,8 +12,10 @@
     "deploy:install": "./scripts/deploy.sh --install",
     "amplify:sandbox": "npx ampx sandbox",
     "amplify:secret": "npx ampx sandbox secret set VITE_SUPABASE_SECRET_KEY",
-    "amplify:secret:cerebras": "npx ampx sandbox secret set CEREBRAS_API_KEY",
-    "test:cerebras": "tsx scripts/test-cerebras-program.ts"
+    "amplify:secret:vertex": "npx ampx sandbox secret set GOOGLE_VERTEX_ACCESS_TOKEN",
+    "amplify:secret:vertex-sa": "npx ampx sandbox secret set GOOGLE_VERTEX_SERVICE_ACCOUNT",
+    "amplify:secret:vertex-project": "npx ampx sandbox secret set GOOGLE_VERTEX_PROJECT_ID",
+    "test:vertex": "tsx scripts/test-cerebras-program.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

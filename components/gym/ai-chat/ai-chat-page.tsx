@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronLeft, FileText, Loader2, Save, Send, Sparkles, Undo2, X } from 'lucide-react'
+import { ChevronLeft, FileText, Loader2, Save, Send, Sparkles, Undo2, X } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { useActiveProgram } from '@/hooks/use-active-program'
 import { useWorkoutAIChat, type AiChatUiMessage } from '@/hooks/useWorkoutAIChat'
@@ -104,19 +104,10 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
 
   // Prewritten prompts are only relevant to the current turn — show each one
   // only when the action it represents actually applies right now.
-  const lastMessage = chat.messages[chat.messages.length - 1]
-  /** The AI just finished responding, so it's plausibly waiting on a confirmation. */
-  const showConfirm =
-    Boolean(lastMessage) &&
-    lastMessage.role === 'assistant' &&
-    !lastMessage.streaming &&
-    !chat.isJudging &&
-    !chat.isSaving &&
-    !saveSuccess
   const showViewPlan = Boolean(planDraft.trim())
   const showRevert = chat.canRevert
   const showSave = Boolean(planDraft.trim()) && (chat.session.planReady || hasRevisedPlan)
-  const showAnyPrompt = showConfirm || showViewPlan || showRevert || showSave
+  const showAnyPrompt = showViewPlan || showRevert || showSave
 
   const title = 'Discuss with AI'
   const placeholder = 'Ask anything, or say what to change…'
@@ -129,11 +120,6 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
       // Failed or cancelled exchanges pop the user bubble, so give the text back.
       setInput((current) => current || value)
     }
-  }
-
-  /** Sends a prewritten prompt exactly as if the user had typed and sent it. */
-  async function sendPrewritten(text: string) {
-    await chat.sendMessage(text)
   }
 
   async function handleSave() {
@@ -215,7 +201,7 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
           {!chat.configured && (
             <div className="rounded-lg border border-neon-yellow/40 bg-neon-yellow/5 px-3 py-2 font-mono text-xs text-neon-yellow">
-              Deploy Amplify (`npx ampx sandbox`) and set CEREBRAS_API_KEY secret to enable AI
+              Deploy Amplify (`npx ampx sandbox`) and set the Google Vertex secret to enable AI
               chat.
             </div>
           )}
@@ -227,8 +213,8 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
                 swaps, a full redesign, whatever.
               </p>
               <p className="font-mono text-xs text-muted-foreground leading-relaxed">
-                I’ll confirm proposed changes before rewriting anything. Use the Confirm prompt
-                below to approve, then View Plan and Save when you’re happy with the draft.
+                Each request is split into steps and finished in that reply. Open View Plan, then
+                Save when the draft looks right.
               </p>
             </div>
           )}
@@ -291,17 +277,6 @@ export function AiChatPage({ mode, onBack, onSaved, onRequestLogin }: AiChatPage
             className="max-w-2xl mx-auto px-4 pt-3 flex items-center gap-2 overflow-x-auto scrollbar-none"
             style={{ scrollbarWidth: 'none' }}
           >
-            {showConfirm && (
-              <button
-                type="button"
-                onClick={() => void sendPrewritten('Confirm')}
-                data-haptic="selection"
-                className="shrink-0 min-h-[32px] px-3 rounded-full font-mono text-[11px] font-bold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5 border border-border text-muted-foreground hover:text-neon-orange hover:border-neon-orange/40"
-              >
-                <Check className="w-3 h-3" />
-                Confirm
-              </button>
-            )}
             {showViewPlan && (
               <button
                 type="button"
